@@ -67,8 +67,11 @@ const AGAIN_BY_ITSELF = 20;
  * ?estrela=eco at the end of the address shows the echo.
  */
 const STAR_STYLE: StarStyle = new URLSearchParams(location.search).get('estrela') === 'eco' ? 'echo' : 'scatter';
-/** How fast the words dance while the star is up: at least as fast as five fingers. */
-const VICTORY_PACE = 1.6;
+/**
+ * While the star is up the words dance to the music rather than to the
+ * hands: slowly between beats, leaping on each one, like the stars.
+ */
+const VICTORY_PACE = { rest: 0.35, beat: 2.4 };
 
 /**
  * The words move with the hands too, less than the head does: they lean
@@ -134,10 +137,11 @@ function frame() {
   // one. And once he is gone, the camera is not followed at all.
   const calm: HandData = { ...(phase === 'won' ? NO_HANDS : hands), clapping: false, clapIntensity: 0 };
   const rate = gestureRate(calm, gesture, delta);
-  advanceClock(delta, [rate, phase === 'won' ? Math.max(rate, VICTORY_PACE) : rate]);
+  const music = sound.listen();
+  const pace = VICTORY_PACE.rest + VICTORY_PACE.beat * (music?.onset ?? 0);
+  advanceClock(delta, [rate, phase === 'won' ? pace : rate]);
   play(delta);
   moveWords(delta);
-  const music = sound.listen();
 
   try {
     useLayerClock(0);
