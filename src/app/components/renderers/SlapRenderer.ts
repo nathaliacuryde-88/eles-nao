@@ -87,8 +87,14 @@ function loadHead(): Promise<HeadModel> {
 const HEAD_RADIUS = 1;
 const FOV = 35;
 const DISTANCE = 14;
-/** The drawn hand, as a share of the tracked one. */
-const HAND_SCALE = 0.9;
+/** The drawn hand, as a share of the tracked one: smaller still on a phone. */
+const HAND_SCALE = 0.81;
+const HAND_SCALE_PHONE = 0.72;
+
+function handScale(width: number, height: number) {
+  const phone = Math.min(width, height) < 600 || window.matchMedia?.('(pointer: coarse)').matches;
+  return phone ? HAND_SCALE_PHONE : HAND_SCALE;
+}
 
 export class SlapRenderer {
   private canvas: HTMLCanvasElement;
@@ -474,9 +480,9 @@ export class SlapRenderer {
   }
 
   /*
-   * Her hand on screen, as a drawn outline: the silhouette's edge glowing,
-   * each finger's own outline fainter inside it, the inside barely there —
-   * in the manner of the Smoke Hand. Built from the tracked joints, so it
+   * Her hand on screen, as a drawn outline: only the silhouette's outer
+   * edge, glowing — palm and fingers joined, no lines inside — and the
+   * inside barely there, in the manner of the Smoke Hand. Built from the tracked joints, so it
    * opens and closes as her hand does, and a fist reads as a fist.
    */
   private shape = document.createElement('canvas');
@@ -492,10 +498,11 @@ export class SlapRenderer {
       const lm = hand?.landmarks;
       if (!lm || lm.length < 21) continue;
       const raw = lm.map((p) => [p.x * width, p.y * height] as [number, number]);
-      // Drawn a tenth smaller than tracked, about its own middle.
+      // Drawn smaller than tracked, about its own middle.
+      const k = handScale(width, height);
       const cx = raw.reduce((t, p) => t + p[0], 0) / raw.length;
       const cy = raw.reduce((t, p) => t + p[1], 0) / raw.length;
-      const pts = raw.map(([x, y]) => [cx + (x - cx) * HAND_SCALE, cy + (y - cy) * HAND_SCALE] as [number, number]);
+      const pts = raw.map(([x, y]) => [cx + (x - cx) * k, cy + (y - cy) * k] as [number, number]);
       const size = Math.hypot(pts[0][0] - pts[9][0], pts[0][1] - pts[9][1]);
       if (size < 4) continue;
       // Work in a box round the hand, not the whole frame.
@@ -580,7 +587,8 @@ export class SlapRenderer {
       if (c.width < w || c.height < h) { c.width = Math.max(c.width, w); c.height = Math.max(c.height, h); }
     }
     const g = this.shape.getContext('2d')!;
-    // One fine line, the same everywhere: round the hand and round each finger.
+    // One fine line, the same everywhere, round the outside of the hand only:
+    // palm and fingers as one shape, no lines inside it.
     const line = Math.max(1, size * 0.02);
 
     // The whole hand: a faint fill, and its outline glowing.
@@ -594,15 +602,6 @@ export class SlapRenderer {
     ctx.shadowBlur = size * 0.1;
     this.edgeOf(w, h, line, '#ffffff');
     ctx.drawImage(this.ring, 0, 0, w, h, x0, y0, w, h);
-
-    // Each finger's own outline, the same line, so fingers held together and
-    // a closed fist still read as fingers.
-    for (let f = 0; f < 5; f++) {
-      g.clearRect(0, 0, this.shape.width, this.shape.height);
-      this.paintSilhouette(g, P, size, [f], false);
-      this.edgeOf(w, h, line, '#ffffff');
-      ctx.drawImage(this.ring, 0, 0, w, h, x0, y0, w, h);
-    }
     ctx.shadowBlur = 0;
     ctx.restore();
   }
