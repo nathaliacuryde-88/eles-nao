@@ -27,7 +27,8 @@ import headUrl from '../../assets/head.glb?url';
  * For the game in ELE(S) NÃO!: it can be shrunk (setScale, down to nothing),
  * told when blows count (setHittable), and it says when one lands (onHit) —
  * a punch or a slap, and where. A shrunk head keeps a fist's reach, so it can
- * still be hit when it is small.
+ * still be hit when it is small. Its hand outline can also be drawn onto
+ * another canvas (drawHandsOn), for the L over the victory.
  *
  * The model is "Jair Bolsonaro" by lexferreira89 (Sketchfab), CC-BY-4.0 —
  * see ATTRIBUTIONS.md.
@@ -261,7 +262,7 @@ export class SlapRenderer {
     ctx.drawImage(this.surface, 0, 0, width, height);
 
     // Only her real hands get a glove: the automatic drive's would hover there.
-    if (this.cfg.hands.show > 0 && !handData.synthetic) this.drawHands(handData, width, height);
+    if (this.cfg.hands.show > 0 && !handData.synthetic) this.drawHands(ctx, handData, width, height, Math.min(1, this.cfg.hands.show));
   }
 
   /** A hand's place on screen, in the scene's units at the head's depth. */
@@ -481,8 +482,12 @@ export class SlapRenderer {
   private shape = document.createElement('canvas');
   private ring = document.createElement('canvas');
 
-  private drawHands(handData: HandData, width: number, height: number) {
-    const alpha = Math.min(1, this.cfg.hands.show);
+  /** Draws hands, in the same outline, onto another canvas: the game's, over everything. */
+  drawHandsOn(ctx: CanvasRenderingContext2D, handData: HandData, alpha: number) {
+    if (alpha > 0) this.drawHands(ctx, handData, ctx.canvas.width, ctx.canvas.height, Math.min(1, alpha));
+  }
+
+  private drawHands(ctx: CanvasRenderingContext2D, handData: HandData, width: number, height: number, alpha: number) {
     for (const hand of [handData.left, handData.right]) {
       const lm = hand?.landmarks;
       if (!lm || lm.length < 21) continue;
@@ -502,7 +507,7 @@ export class SlapRenderer {
       const w = Math.ceil(Math.max(...xs) + pad) - x0;
       const h = Math.ceil(Math.max(...ys) + pad) - y0;
       const local = pts.map(([x, y]) => [x - x0, y - y0] as [number, number]);
-      this.drawHand(local, size, w, h, x0, y0, alpha);
+      this.drawHand(ctx, local, size, w, h, x0, y0, alpha);
     }
   }
 
@@ -570,8 +575,7 @@ export class SlapRenderer {
     r.globalCompositeOperation = 'source-over';
   }
 
-  private drawHand(P: [number, number][], size: number, w: number, h: number, x0: number, y0: number, alpha: number) {
-    const ctx = this.ctx;
+  private drawHand(ctx: CanvasRenderingContext2D, P: [number, number][], size: number, w: number, h: number, x0: number, y0: number, alpha: number) {
     for (const c of [this.shape, this.ring]) {
       if (c.width < w || c.height < h) { c.width = Math.max(c.width, w); c.height = Math.max(c.height, h); }
     }

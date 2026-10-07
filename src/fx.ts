@@ -7,15 +7,17 @@
  *
  *   Sparks   little white five-pointed stars thrown off where a blow lands,
  *            and a ring knocked out from it
- *   Victory  he is gone: a big red star with 13 on it lands in the middle,
- *            rays turning behind it, rings going out, white stars falling
+ *   Victory  he is gone: a big solid red star with 13 on it lands in the
+ *            middle, its repeats opening out behind it, fainter and fainter,
+ *            vibrating, and white stars falling round it
+ *   LHand    and the hand stops following the camera and makes an L
  * ═══════════════════════════════════════════════════════════════════════════
  */
 
+import type { HandData } from './app/App';
+
 const TAU = Math.PI * 2;
 const RED = '#ff202f';
-/** The shadowed half of each of the big star's arms. */
-const RED_SHADE = '#c20f1e';
 /** The typeface Big Type loads, so the 13 is in the same letters as the words. */
 const FONT = '"Strichpunkt Sans", "Arial Black", sans-serif';
 /** A regular five-pointed star: its inner corners, as a share of its points. */
@@ -158,9 +160,21 @@ const STAR_LANDS = 0.55;
 const STAR_SETTLES = 1.05;
 const NUMBER_IN = 0.8;
 const NUMBER_SLAMS = 1.1;
-const RING_EVERY = 1.7;
 /** How long it takes to clear away when the game starts again. */
 const LEAVE = 0.6;
+/** The star's repeats behind it: how many, how much bigger each, how strong the nearest. */
+const ECHOES = 7;
+const ECHO_STEP = 0.17;
+const ECHO_ALPHA = 0.3;
+
+/** Where the big star stands, and how big: its middle and the reach of its points. */
+export function starGeometry(width: number, height: number) {
+  // Big: a third of the frame's height, or most of a phone's width.
+  const R = Math.min(width * 0.4, height * 0.3);
+  // The star's points reach further up than down: lift it so it looks
+  // centred, a little above the middle, leaving room for the score below.
+  return { cx: width / 2, cy: height * 0.45 + R * 0.095, R };
+}
 
 export class Victory {
   /** Seconds since he went; below zero, nothing showing. */
@@ -170,11 +184,15 @@ export class Victory {
   private sparks = new Sparks();
   private landed = false;
   private slammed = false;
-  private nextRing = 0;
   private showered = 0;
 
   get showing() {
     return this.t >= 0;
+  }
+
+  /** How much of it is showing: 1, and down to 0 as it clears away. */
+  get opacity() {
+    return this.t >= 0 ? Math.max(0, this.fade) : 0;
   }
 
   start() {
@@ -183,7 +201,6 @@ export class Victory {
     this.leaving = false;
     this.landed = false;
     this.slammed = false;
-    this.nextRing = NUMBER_SLAMS + RING_EVERY;
     this.showered = 0;
   }
 
@@ -204,12 +221,7 @@ export class Victory {
     }
     const t = this.t;
     const m = Math.min(width, height);
-    // Big: a third of the frame's height, or most of a phone's width.
-    const R = Math.min(width * 0.4, height * 0.3);
-    // The star's points reach further up than down: lift it so it looks
-    // centred, a little above the middle, leaving room for the score below.
-    const cx = width / 2;
-    const cy = height * 0.45 + R * 0.095;
+    const { cx, cy, R } = starGeometry(width, height);
 
     // The moments, each once.
     if (!this.landed && t >= STAR_LANDS) {
@@ -221,10 +233,6 @@ export class Victory {
       this.slammed = true;
       this.sparks.ring(cx, cy, R * 1.5, m * 0.018, 0.5);
       this.sparks.burst(cx, cy, { count: 18, size: m * 0.035, speed: m * 1.1, life: 1 });
-    }
-    if (t >= this.nextRing) {
-      this.nextRing += RING_EVERY;
-      this.sparks.ring(cx, cy, Math.hypot(width, height) * 0.55, m * 0.008, 1.6);
     }
     // Once it has settled, a steady fall of white stars from round its edge.
     if (t > STAR_SETTLES && !this.leaving) {
@@ -240,7 +248,6 @@ export class Victory {
 
     ctx.save();
     ctx.globalCompositeOperation = 'source-over';
-    ctx.globalAlpha = this.fade;
 
     // The two layers stay, dimmed, behind it.
     ctx.fillStyle = '#000';
@@ -254,25 +261,6 @@ export class Victory {
       ctx.fillRect(0, 0, width, height);
     }
 
-    // Rays, turning slowly, reaching out as the star comes in.
-    const reach = Math.hypot(width, height) * ease((t - STAR_IN) / 0.9);
-    if (reach > 0) {
-      const rays = 16;
-      const turn = t * 0.12;
-      ctx.globalAlpha = this.fade * 0.2;
-      ctx.fillStyle = RED;
-      ctx.beginPath();
-      for (let i = 0; i < rays; i++) {
-        const a = turn + (i / rays) * TAU;
-        const half = (TAU / rays) * 0.25;
-        ctx.moveTo(cx, cy);
-        ctx.lineTo(cx + Math.cos(a - half) * reach, cy + Math.sin(a - half) * reach);
-        ctx.lineTo(cx + Math.cos(a + half) * reach, cy + Math.sin(a + half) * reach);
-        ctx.closePath();
-      }
-      ctx.fill();
-    }
-
     // The star: spun in, overshooting, then breathing and rocking a little.
     const u = (t - STAR_IN) / (STAR_SETTLES - STAR_IN);
     if (u > 0) {
@@ -284,16 +272,25 @@ export class Victory {
       const y = cy + (Math.random() - 0.5) * shake;
       const r = R * Math.max(0, scale);
 
-      // A red glow behind it, pulsing.
-      const glow = ctx.createRadialGradient(x, y, r * 0.2, x, y, r * 1.9);
-      glow.addColorStop(0, 'rgba(255, 32, 47, 0.55)');
-      glow.addColorStop(1, 'rgba(255, 32, 47, 0)');
-      ctx.globalAlpha = this.fade * (0.75 + 0.25 * Math.sin(t * 2.6));
-      ctx.fillStyle = glow;
-      ctx.fillRect(x - r * 2, y - r * 2, r * 4, r * 4);
+      // Its repeats, opening out from it as it lands, each bigger and
+      // fainter than the last, and vibrating: a quick pulse running out
+      // through them, and a shiver that grows toward the outside.
+      const open = ease((t - STAR_LANDS) / 0.8);
+      ctx.fillStyle = RED;
+      for (let k = ECHOES; k >= 1 && open > 0; k--) {
+        const pulse = 1 + 0.035 * Math.sin(t * 9 - k * 0.9);
+        const er = r * (1 + k * ECHO_STEP * open) * pulse;
+        const shiver = R * 0.012 * Math.sqrt(k);
+        ctx.globalAlpha = this.fade * ECHO_ALPHA * (1 - (k - 1) / ECHOES);
+        starPath(ctx, x + (Math.random() - 0.5) * shiver, y + (Math.random() - 0.5) * shiver,
+          er, er * INNER, turn + 0.03 * Math.sin(t * 7 + k * 1.3));
+        ctx.fill();
+      }
 
+      // The star itself, solid.
       ctx.globalAlpha = this.fade;
-      drawBigStar(ctx, x, y, r, turn);
+      starPath(ctx, x, y, r, r * INNER, turn);
+      ctx.fill();
 
       // 13, slammed down on it like a stamp.
       const n = (t - NUMBER_IN) / (NUMBER_SLAMS - NUMBER_IN);
@@ -315,40 +312,110 @@ export class Victory {
   }
 }
 
-/** The big star, faceted: each arm split down its middle into a lit half and a shaded one. */
-function drawBigStar(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, turn: number) {
-  if (r <= 0) return;
-  // The whole star in the shade first, so no seam shows between the halves.
-  ctx.fillStyle = RED_SHADE;
-  starPath(ctx, x, y, r, r * INNER, turn);
-  ctx.fill();
-  ctx.fillStyle = RED;
-  ctx.beginPath();
-  for (let k = 0; k < 5; k++) {
-    const a = turn - Math.PI / 2 + (k * TAU) / 5;
-    const b = a + Math.PI / 5;
-    ctx.moveTo(x, y);
-    ctx.lineTo(x + Math.cos(a) * r, y + Math.sin(a) * r);
-    ctx.lineTo(x + Math.cos(b) * r * INNER, y + Math.sin(b) * r * INNER);
-    ctx.closePath();
-  }
-  ctx.fill();
-}
-
-/** The number, white, as wide as the star's middle, centred on the origin. */
+/**
+ * The number, white, centred on the origin, well inside the star: within the
+ * solid middle between its arms, which is about 0.72 of its reach across.
+ */
 function drawNumber(ctx: CanvasRenderingContext2D, text: string, R: number) {
   ctx.font = `900 100px ${FONT}`;
   const probe = ctx.measureText(text);
-  const size = (100 * R * 0.85) / Math.max(1, probe.width);
+  const size = (100 * R * 0.6) / Math.max(1, probe.width);
   ctx.font = `900 ${size}px ${FONT}`;
   const box = ctx.measureText(text);
   ctx.textAlign = 'center';
   ctx.textBaseline = 'alphabetic';
   ctx.fillStyle = '#fff';
-  ctx.shadowColor = 'rgba(80, 0, 8, 0.45)';
-  ctx.shadowBlur = R * 0.04;
-  ctx.shadowOffsetY = R * 0.025;
-  ctx.fillText(text, 0, (box.actualBoundingBoxAscent - box.actualBoundingBoxDescent) / 2);
+  ctx.fillText(text, 0, (box.actualBoundingBoxAscent - box.actualBoundingBoxDescent) / 2 + R * 0.01);
+}
+
+// ── the L ────────────────────────────────────────────────────────────────────
+
+/**
+ * A hand making an L: the index finger straight up, the thumb straight out
+ * to the right, the other three folded down. The tracker's 21 points, in
+ * units of the hand's size (the wrist to the middle finger's knuckle),
+ * measured from the wrist, y down.
+ */
+const L_POSE: [number, number][] = [
+  [0, 0], // wrist
+  [0.3, -0.22], [0.58, -0.4], [0.86, -0.5], [1.12, -0.56], // thumb, out to the right
+  [0.3, -0.95], [0.33, -1.4], [0.35, -1.7], [0.36, -1.95], // index, up
+  [0.05, -1], [0.07, -1.22], [0.06, -1.04], [0.05, -0.86], // middle, folded
+  [-0.18, -0.95], [-0.19, -1.15], [-0.18, -0.98], [-0.16, -0.82], // ring, folded
+  [-0.38, -0.84], [-0.4, -1], [-0.38, -0.86], [-0.35, -0.74], // little finger, folded
+];
+/** How long the hand takes to become the L, and the other one to go. */
+const L_FORMS = 0.9;
+const OTHER_GOES = 0.4;
+
+type Point = { x: number; y: number; z: number };
+
+/**
+ * When he is gone the hands stop following the camera. One of them — the
+ * right, if both were up — moves beside the star and makes an L; the other
+ * fades where it stopped. With no hand up at all, the L simply appears.
+ */
+export class LHand {
+  private t = -1;
+  private from: Point[] | null = null;
+  private other: Point[] | null = null;
+
+  get showing() {
+    return this.t >= 0;
+  }
+
+  /** Takes the hands as they were when he went. */
+  start(hands: HandData) {
+    const right = hands.right?.landmarks?.length === 21 ? hands.right.landmarks : null;
+    const left = hands.left?.landmarks?.length === 21 ? hands.left.landmarks : null;
+    this.from = (right ?? left)?.map((p) => ({ ...p })) ?? null;
+    this.other = right && left ? left.map((p) => ({ ...p })) : null;
+    this.t = 0;
+  }
+
+  stop() {
+    this.t = -1;
+  }
+
+  /** Draws them, through `paint`, the Slap's own hand outline, at `fade`. */
+  draw(width: number, height: number, dt: number, fade: number, paint: (hands: HandData, alpha: number) => void) {
+    if (this.t < 0 || fade <= 0) return;
+    this.t += dt;
+    const k = smoothstep(this.t / L_FORMS);
+
+    // Where the L goes: beside the star when there is room, over its lower
+    // right point on a narrow screen, bobbing gently once it is made.
+    const { cx, cy, R } = starGeometry(width, height);
+    const s = R * 0.55;
+    const wide = width >= height;
+    const ax = wide ? cx + R * 1.5 : cx + R * 0.55;
+    const ay = (wide ? cy : cy + R * 1.25) + Math.sin(this.t * 2.6) * 0.04 * s * smoothstep(this.t - L_FORMS);
+    const wx = ax - 0.35 * s;
+    const wy = ay + 0.83 * s;
+    // With nothing to move from, it grows in where it will stand.
+    const grow = this.from ? 1 : 0.6 + 0.4 * k;
+    const target = L_POSE.map(([x, y]) => ({ x: (ax + (wx - ax + x * s) * grow) / width, y: (ay + (wy - ay + y * s) * grow) / height, z: 0 }));
+    const points = this.from
+      ? target.map((p, i) => ({ x: lerp(this.from![i].x, p.x, k), y: lerp(this.from![i].y, p.y, k), z: 0 }))
+      : target;
+    paint(asHands(points), fade * (this.from ? 1 : k));
+
+    if (this.other && this.t < OTHER_GOES) paint(asHands(this.other), fade * (1 - this.t / OTHER_GOES));
+  }
+}
+
+/** A drawn hand, as the Slap's outline reads one. */
+function asHands(points: Point[]): HandData {
+  return { left: null, right: { position: { x: points[9].x, y: points[9].y }, gesture: 'none', landmarks: points } };
+}
+
+function lerp(a: number, b: number, k: number) {
+  return a + (b - a) * k;
+}
+
+function smoothstep(x: number) {
+  const u = Math.max(0, Math.min(1, x));
+  return u * u * (3 - 2 * u);
 }
 
 /** 0 to 1, slowing into the end. */
