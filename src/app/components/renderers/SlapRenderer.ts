@@ -511,7 +511,8 @@ export class SlapRenderer {
       const size = Math.hypot(pts[0][0] - pts[9][0], pts[0][1] - pts[9][1]);
       if (size < 4) continue;
       // Work in a box round the hand, not the whole frame.
-      const pad = size * 0.6;
+      // Room enough for the wrist's stub and the glow, so the hand is never cut off.
+      const pad = size * 1;
       const xs = pts.map((p) => p[0]);
       const ys = pts.map((p) => p[1]);
       const x0 = Math.floor(Math.min(...xs) - pad);
