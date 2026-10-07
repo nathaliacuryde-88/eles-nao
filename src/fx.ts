@@ -203,6 +203,8 @@ export class Victory {
   private showered = 0;
   // Scatter: the star with 13, and the field of stars round it, laid out on first draw.
   private central = Math.random() * 1000;
+  private clock = 0;
+  private beat = 0;
   private field: FieldStar[] | null = null;
 
   constructor(private readonly style: StarStyle = 'scatter') {}
@@ -225,6 +227,7 @@ export class Victory {
     this.showered = 0;
     this.central = Math.random() * 1000;
     this.field = null;
+    this.clock = 0;
   }
 
   /** Clears away. */
@@ -232,9 +235,14 @@ export class Victory {
     if (this.showing) this.leaving = true;
   }
 
-  draw(ctx: CanvasRenderingContext2D, width: number, height: number, dt: number) {
+  /** `beat` is the music's pulse, 0 to 1: the stars move and swell with it. */
+  draw(ctx: CanvasRenderingContext2D, width: number, height: number, dt: number, beat = 0) {
     if (this.t < 0) return;
     this.t += dt;
+    this.beat = beat;
+    // The stars' own time runs slow between beats and leaps on them, so
+    // their points move to the music.
+    this.clock += dt * (0.45 + 2.2 * beat);
     if (this.leaving) {
       this.fade -= dt / LEAVE;
       if (this.fade <= 0) {
@@ -303,7 +311,7 @@ export class Victory {
         ctx.globalAlpha = this.fade;
         ctx.fillStyle = RED;
         // A little rough and moving too, but its middle kept wide for the 13.
-        roughStar(ctx, x, y, r, turn, this.central, t, true);
+        roughStar(ctx, x, y, r * (1 + 0.05 * this.beat), turn, this.central, this.clock, true);
         ctx.fill();
       }
 
@@ -356,10 +364,10 @@ export class Victory {
     this.field.forEach((star, i) => {
       const u = (t - FIELD_FROM - i * FIELD_EVERY) / FIELD_POP;
       if (u <= 0) return;
-      const r = star.size * m * backOut(Math.min(1, u)) * (1 + 0.04 * Math.sin(t * 2 + i));
+      const r = star.size * m * backOut(Math.min(1, u)) * (1 + 0.12 * this.beat);
       ctx.globalAlpha = this.fade;
       ctx.fillStyle = star.colour;
-      roughStar(ctx, star.x * width, star.y * height, r, star.turn, star.seed, t + star.phase, false);
+      roughStar(ctx, star.x * width, star.y * height, r, star.turn, star.seed, this.clock + star.phase, false);
       ctx.fill();
     });
   }

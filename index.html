@@ -21,13 +21,13 @@
       }
       #intro.gone { opacity: 0; pointer-events: none; }
       #intro p, .steps { margin: 0; max-width: 36em; color: rgba(255, 255, 255, 0.8); font-size: 14.4px; letter-spacing: 0.04em; }
-      .steps { display: grid; gap: 1.2em; padding: 0; list-style: none; text-align: left; }
-      .steps li { display: flex; align-items: center; gap: 0.8em; }
+      .steps { display: grid; gap: 1.4em; padding: 0; list-style: none; text-align: center; }
+      .steps li { display: grid; justify-items: center; gap: 0.5em; }
       .steps span {
         flex: none; display: grid; place-items: center; width: 1.9em; height: 1.9em; border: 1px solid currentColor;
         border-radius: 50%; font-size: 0.85em; line-height: 1;
       }
-      #intro .goal { color: #fff; font-weight: 700; letter-spacing: 0.08em; }
+      .steps b { color: #fff; letter-spacing: 0.08em; }
       #intro .warn { max-width: 34em; color: rgba(255, 255, 255, 0.55); font-size: 11px; font-style: italic; }
       #start, #again {
         padding: 14px 34px; border: 0; border-radius: 999px; background: #ff202f; color: #000;
@@ -93,9 +93,8 @@
       <ol class="steps">
         <li><span>1</span>Levante as mãos para o reconhecimento da câmera.</li>
         <li><span>2</span>Bata nele — mão aberta dá tapa, punho dá soco.</li>
-        <li><span>3</span>Cada golpe encolhe ele.</li>
+        <li><span>3</span>Cada golpe encolhe ele.<br /><b>Faça ele sumir!*</b></li>
       </ol>
-      <p class="goal">Faça ele sumir!*</p>
       <button id="start">ENTRAR</button>
       <small class="warn">* Isso não é um incentivo à violência, apenas uma forma de extravasar a raiva que estamos sentindo nesse momento.</small>
     </div>
