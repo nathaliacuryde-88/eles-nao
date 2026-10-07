@@ -19,7 +19,7 @@ import musicUrl from './app/assets/lula-la-loop.wav?url';
 const SAVED = 'eles-nao.sound';
 /** How loud the music plays, how long it takes to come in, and to go. */
 const MUSIC_LEVEL = 0.75;
-const MUSIC_IN = 0.4;
+const MUSIC_IN = 3;
 const MUSIC_OUT = 0.6;
 
 export class Sound {
@@ -99,7 +99,7 @@ export class Sound {
       .finally(() => { this.loading = false; });
   }
 
-  /** The music, looping, coming in quickly. If it is still loading, it starts when it arrives. */
+  /** The music, looping, fading in over a few seconds. If it is still loading, it starts when it arrives. */
   startMusic() {
     this.wantMusic = true;
     const ctx = this.ctx;
@@ -109,8 +109,8 @@ export class Sound {
     src.buffer = this.music;
     src.loop = true;
     const gain = ctx.createGain();
-    gain.gain.setValueAtTime(0.0001, t);
-    gain.gain.exponentialRampToValueAtTime(MUSIC_LEVEL, t + MUSIC_IN);
+    gain.gain.setValueAtTime(0, t);
+    gain.gain.linearRampToValueAtTime(MUSIC_LEVEL, t + MUSIC_IN);
     src.connect(gain).connect(this.master);
     src.start(t);
     this.playing = { src, gain };

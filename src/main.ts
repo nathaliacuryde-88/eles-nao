@@ -346,11 +346,7 @@ async function begin() {
   sound.wake();
   start.disabled = true;
   start.textContent = '…';
-  try {
-    document.documentElement.requestFullscreen?.().catch(() => {});
-  } catch {
-    // no fullscreen here (iPhone): carry on without it
-  }
+  // The page stays as it is: fullscreen only when asked for (double-click or F).
   let video: HTMLVideoElement;
   try {
     const stream = await navigator.mediaDevices.getUserMedia({

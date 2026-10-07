@@ -480,7 +480,7 @@ function layField(width: number, height: number): FieldStar[] {
   // Sized by the whole screen, not just its short side, so a tall phone fills too.
   const unit = Math.max(m, Math.sqrt(width * height) * 0.8);
   const { cx, cy, R } = starGeometry(width, height);
-  const count = Math.round(Math.max(14, Math.min(22, (width * height) / (unit * 0.26) ** 2)));
+  const count = Math.round(Math.max(8, Math.min(12, (width * height) / (unit * 0.36) ** 2)));
   const placed: { x: number; y: number; r: number }[] = [{ x: cx, y: cy, r: R }];
   const stars: FieldStar[] = [];
   for (let i = 0; i < count; i++) {
