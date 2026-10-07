@@ -511,9 +511,10 @@ function layField(width: number, height: number): FieldStar[] {
       colour: FIELD_REDS[i % FIELD_REDS.length],
     });
   }
-  // The star furthest left is always one of the pink ones.
-  const left = stars.reduce((a, b) => (b.x < a.x ? b : a));
-  left.colour = FIELD_REDS[1];
+  // On the left, pink: the two stars furthest left whose middles are on
+  // screen (one past the edge would barely show), on a phone and a desktop.
+  const onScreen = stars.filter((s) => s.x > 0.04 && s.y > 0.04 && s.y < 0.96).sort((a, b) => a.x - b.x);
+  for (const star of onScreen.slice(0, 2)) star.colour = FIELD_REDS[1];
   return stars;
 }
 
