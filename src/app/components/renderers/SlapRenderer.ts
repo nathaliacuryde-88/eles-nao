@@ -24,12 +24,27 @@ import headUrl from '../../assets/head.glb?url';
  * little, the bass makes it bob. Your hand can be drawn on screen as a
  * glove, so on the projection it reads as a slap.
  *
+ * For the game in ELE(S) NÃO!: it can be shrunk (setScale, down to nothing),
+ * told when blows count (setHittable), and it says when one lands (onHit) —
+ * a punch or a slap, and where. A shrunk head keeps a fist's reach, so it can
+ * still be hit when it is small. Its hand outline can also be drawn onto
+ * another canvas (drawHandsOn), for the L over the victory.
+ *
  * The model is "Jair Bolsonaro" by lexferreira89 (Sketchfab), CC-BY-4.0 —
  * see ATTRIBUTIONS.md.
  * ═══════════════════════════════════════════════════════════════════════════
  */
 
 type Cfg = typeof SlapConfig;
+
+/** A blow that landed: a punch or a slap, where on screen (0–1, y down), and which way it went. */
+export interface Hit {
+  punch: boolean;
+  x: number;
+  y: number;
+  dx: number;
+  dy: number;
+}
 
 interface HeadModel {
   /** The pieces (face, hair), centred and scaled to stand two units tall. */
@@ -111,6 +126,11 @@ export class SlapRenderer {
   private lastBeat = false;
   private halfW = 1;
   private halfH = 1;
+  // The game's hold on it: how big it is left (0 is gone), whether a blow
+  // counts, and who is told when one lands.
+  private scale = 1;
+  private hittable = true;
+  onHit: ((hit: Hit) => void) | null = null;
 
   constructor(canvas: HTMLCanvasElement, ctx: CanvasRenderingContext2D) {
     this.canvas = canvas;
@@ -147,6 +167,38 @@ export class SlapRenderer {
 
   isReady() {
     return this.ready || this.failed;
+  }
+
+  /** How much of the head is left: 1 whole, 0 gone. */
+  setScale(scale: number) {
+    this.scale = Math.max(0, scale);
+  }
+
+  /** Whether a hand landing on it counts as a blow. */
+  setHittable(hittable: boolean) {
+    this.hittable = hittable;
+  }
+
+  /** Where the head is on screen (0–1, y down) and its radius, as a share of the frame's height. */
+  where() {
+    return {
+      x: this.pos.x / (2 * this.halfW) + 0.5,
+      y: 0.5 - this.pos.y / (2 * this.halfH),
+      radius: this.radius() / (2 * this.halfH),
+    };
+  }
+
+  /** Back in the middle, still, facing you, the dent and the flush gone. */
+  reset() {
+    this.pos.set(0, 0);
+    this.vel.set(0, 0);
+    this.spin.set(0, 0, 0);
+    this.body.quaternion.identity();
+    this.dent = 0;
+    this.wobble = 0;
+    this.wobbleVel = 0;
+    this.blush = 0;
+    this.sinceSlap = 99;
   }
 
   destroy() {
@@ -210,7 +262,7 @@ export class SlapRenderer {
     ctx.drawImage(this.surface, 0, 0, width, height);
 
     // Only her real hands get a glove: the automatic drive's would hover there.
-    if (this.cfg.hands.show > 0 && !handData.synthetic) this.drawHands(handData, width, height);
+    if (this.cfg.hands.show > 0 && !handData.synthetic) this.drawHands(ctx, handData, width, height, Math.min(1, this.cfg.hands.show));
   }
 
   /** A hand's place on screen, in the scene's units at the head's depth. */
@@ -220,7 +272,7 @@ export class SlapRenderer {
 
   /** Its radius in the scene: at size 1 the head stands about half the frame's height. */
   private radius() {
-    return HEAD_RADIUS * 2 * this.cfg.head.size;
+    return HEAD_RADIUS * 2 * this.cfg.head.size * this.scale;
   }
 
   /*
@@ -241,14 +293,16 @@ export class SlapRenderer {
       const fist = hand.gesture === 'fist' || (hand.fingerCount ?? 5) <= 1;
       const open = fist || hand.gesture === 'open' || (hand.fingerCount ?? 0) >= 4;
       const centre = this.pos;
-      const reach = this.radius() * 1.35;
+      // Shrunk small, it is still there to be hit: never less than a fist's reach.
+      const reach = Math.max(this.radius() * 1.35, this.halfH * 0.22);
       // Through the head this frame: the nearest point of the hand's path is inside it.
       const path = at.clone().sub(before);
       const t = path.lengthSq() > 0 ? Math.max(0, Math.min(1, centre.clone().sub(before).dot(path) / path.lengthSq())) : 1;
       const nearest = before.clone().add(path.multiplyScalar(t));
       const fast = velocity.length() > this.halfH * 1.6 * cfg.hands.speed;
-      if (open && fast && nearest.distanceTo(centre) < reach && this.sinceSlap > 0.3) {
+      if (this.hittable && this.scale > 0 && open && fast && nearest.distanceTo(centre) < reach && this.sinceSlap > 0.3) {
         this.slap(velocity, nearest, fist);
+        this.tell(velocity, fist);
       }
     }
 
@@ -293,6 +347,20 @@ export class SlapRenderer {
     this.wobbleVel += 6 * hard * cfg.head.squash;
     this.blush = Math.min(1, this.blush + 0.6 * hard + 0.3);
     this.sinceSlap = 0;
+  }
+
+  /** Tells the game a blow landed: on the head's edge, on the side the hand came in from. */
+  private tell(handVelocity: THREE.Vector2, punch: boolean) {
+    if (!this.onHit) return;
+    const dir = handVelocity.clone().normalize();
+    const at = this.pos.clone().addScaledVector(dir, -this.radius() * 0.8);
+    this.onHit({
+      punch,
+      x: at.x / (2 * this.halfW) + 0.5,
+      y: 0.5 - at.y / (2 * this.halfH),
+      dx: dir.x,
+      dy: -dir.y,
+    });
   }
 
   private readMusic(audioData: AudioData | undefined, play: Playing) {
@@ -357,6 +425,9 @@ export class SlapRenderer {
   private place(play: Playing) {
     const { cfg } = this;
     const r = this.radius();
+    // Gone: nothing to draw, and a head scaled to nothing would not draw cleanly.
+    this.head.visible = r > 1e-3;
+    if (!this.head.visible) return;
     const bob = Math.sin(this.time * 1.3) * 0.08 * r + play.bass * cfg.sound.bass * 0.25 * r;
     this.head.position.set(this.pos.x, this.pos.y + bob * (1 - Math.min(1, this.vel.length() / this.halfH)), 0);
     // Idle, it looks about a little.
@@ -411,8 +482,12 @@ export class SlapRenderer {
   private shape = document.createElement('canvas');
   private ring = document.createElement('canvas');
 
-  private drawHands(handData: HandData, width: number, height: number) {
-    const alpha = Math.min(1, this.cfg.hands.show);
+  /** Draws hands, in the same outline, onto another canvas: the game's, over everything. */
+  drawHandsOn(ctx: CanvasRenderingContext2D, handData: HandData, alpha: number) {
+    if (alpha > 0) this.drawHands(ctx, handData, ctx.canvas.width, ctx.canvas.height, Math.min(1, alpha));
+  }
+
+  private drawHands(ctx: CanvasRenderingContext2D, handData: HandData, width: number, height: number, alpha: number) {
     for (const hand of [handData.left, handData.right]) {
       const lm = hand?.landmarks;
       if (!lm || lm.length < 21) continue;
@@ -432,7 +507,7 @@ export class SlapRenderer {
       const w = Math.ceil(Math.max(...xs) + pad) - x0;
       const h = Math.ceil(Math.max(...ys) + pad) - y0;
       const local = pts.map(([x, y]) => [x - x0, y - y0] as [number, number]);
-      this.drawHand(local, size, w, h, x0, y0, alpha);
+      this.drawHand(ctx, local, size, w, h, x0, y0, alpha);
     }
   }
 
@@ -500,8 +575,7 @@ export class SlapRenderer {
     r.globalCompositeOperation = 'source-over';
   }
 
-  private drawHand(P: [number, number][], size: number, w: number, h: number, x0: number, y0: number, alpha: number) {
-    const ctx = this.ctx;
+  private drawHand(ctx: CanvasRenderingContext2D, P: [number, number][], size: number, w: number, h: number, x0: number, y0: number, alpha: number) {
     for (const c of [this.shape, this.ring]) {
       if (c.width < w || c.height < h) { c.width = Math.max(c.width, w); c.height = Math.max(c.height, h); }
     }
