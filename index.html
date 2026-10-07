@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="color-scheme" content="dark" />
+    <meta name="theme-color" content="#000000" />
+    <title>ELE(S) NÃO!</title>
+    <meta name="description" content="Dê um tapa. Use as mãos na frente da câmera." />
+    <meta property="og:title" content="ELE(S) NÃO!" />
+    <meta property="og:description" content="Dê um tapa. Use as mãos na frente da câmera." />
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%23000'/%3E%3Ctext x='16' y='24' font-family='Arial Black,Arial' font-weight='900' font-size='22' text-anchor='middle' fill='%23ff202f'%3E!%3C/text%3E%3C/svg%3E" />
+    <style>
+      html, body { height: 100%; margin: 0; background: #000; color: #fff; overflow: hidden; }
+      body { font: 12px/1.6 ui-monospace, SFMono-Regular, Menlo, monospace; -webkit-user-select: none; user-select: none; }
+      #stage { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+      #intro {
+        position: fixed; inset: 0; display: grid; place-content: center; justify-items: center; gap: 18px;
+        padding: 24px; text-align: center; background: rgba(0, 0, 0, 0.55);
+        transition: opacity 0.6s ease;
+      }
+      #intro.gone { opacity: 0; pointer-events: none; }
+      #intro p { margin: 0; max-width: 30em; color: rgba(255, 255, 255, 0.75); letter-spacing: 0.04em; }
+      #intro small { color: rgba(255, 255, 255, 0.45); }
+      #start {
+        padding: 14px 34px; border: 0; border-radius: 999px; background: #ff202f; color: #000;
+        font: inherit; font-size: 14px; font-weight: 700; letter-spacing: 0.18em; cursor: pointer;
+      }
+      #start:disabled { opacity: 0.6; cursor: default; }
+      #note {
+        position: fixed; left: 50%; top: 16px; transform: translateX(-50%); padding: 8px 14px; border-radius: 999px;
+        background: rgba(0, 0, 0, 0.7); color: rgba(255, 255, 255, 0.8); display: none;
+      }
+      #note.shown { display: block; }
+      #credit {
+        position: fixed; right: 12px; bottom: max(10px, env(safe-area-inset-bottom)); color: rgba(255, 255, 255, 0.35);
+        font-size: 10px; text-align: right;
+      }
+      #credit a { color: inherit; }
+    </style>
+  </head>
+  <body>
+    <canvas id="stage"></canvas>
+
+    <div id="intro">
+      <p>Levante as mãos na frente da câmera e dê um tapa — mão aberta ou punho fechado.<br />Bata palmas para explodir.</p>
+      <button id="start">ENTRAR</button>
+      <small>A câmera fica só no seu navegador: nada é gravado nem enviado.</small>
+    </div>
+
+    <div id="note"></div>
+
+    <div id="credit">
+      Modelo 3D <a href="https://sketchfab.com/3d-models/jair-bolsonaro-6ac0a141bab743c5bab4c520f104a475" target="_blank" rel="noopener">“Jair Bolsonaro”</a>
+      por <a href="https://sketchfab.com/lexferreira89" target="_blank" rel="noopener">lexferreira89</a>,
+      <a href="http://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a>
+     
+    </div>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

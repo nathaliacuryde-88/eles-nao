@@ -1,0 +1,154 @@
+/**
+ * ═══════════════════════════════════════════════════════════════════════════
+ * RUNTIME PARAMETERS
+ * ═══════════════════════════════════════════════════════════════════════════
+ * A renderer's tunable numbers live in a plain config object (see
+ * src/app/config). This module lets a slider — or later a MIDI knob, or a
+ * preset — override any of those numbers at runtime without the renderer
+ * knowing where the value came from.
+ *
+ * A parameter is addressed by its dotted path into that config object, so
+ * 'trail.fadeAlpha' means GeometricConfig.trail.fadeAlpha. The config stays
+ * the single source of truth for defaults: nothing here restates them.
+ * ═══════════════════════════════════════════════════════════════════════════
+ */
+
+/** One slider. `path` addresses a number inside the renderer's config object. */
+export interface ParamSpec {
+  path: string;
+  label: string;
+  min: number;
+  max: number;
+  step: number;
+  /** Shown under the label. Usually lifted from the config file's own comment. */
+  hint?: string;
+  /**
+   * Names for a slider whose numbers are really a list of choices, indexed by
+   * value. "Mask" says what it selects; "0" only says where the handle is.
+   */
+  labels?: string[];
+  /**
+   * Shows the choice as a menu rather than a slider, each option with a
+   * sample beside its name.
+   *
+   * For choices you pick by how they look — a character set is chosen by its
+   * characters, and dragging a slider through ten names to find the one that
+   * looks right is guessing. The value is still the option's index, so it is
+   * stored, reset and kept per visual exactly like any other setting.
+   */
+  menu?: boolean;
+  /** What each option looks like, index-matched to `labels`. Drawn in monospace. */
+  samples?: string[];
+  /**
+   * The option that opens a "Your characters" field under the menu — the
+   * Custom character set. The characters typed there are one string for the
+   * whole tool rather than a number per visual, so they live in
+   * config/charsets.ts, not in the stored settings.
+   */
+  customAt?: number;
+  /**
+   * Path to another parameter this one does nothing without.
+   *
+   * The feedback stage's transforms all act on the history, so with Amount at
+   * zero there is no history and they are inert — five sliders that move and
+   * change nothing, with no way to tell why. Dimmed, they say so.
+   */
+  needs?: string;
+}
+
+/** Sliders that belong together, rendered as one titled block. */
+export interface ParamGroup {
+  name: string;
+  /**
+   * Path to a 0/1 bypass flag. When set, the group header becomes a switch —
+   * the TouchDesigner layer model: kill the stage without losing its settings.
+   */
+  togglePath?: string;
+  /**
+   * Hides the group unless another parameter holds one of these values.
+   *
+   * For a renderer built around a mode, where each mode has its own controls
+   * and the rest do nothing: showing all of them at once is a wall of sliders
+   * where most are inert, and there is no way to tell which from looking.
+   */
+  visibleWhen?: { path: string; equals: number[] };
+  /**
+   * The pipeline stage this group drives, for the panel's running/idle dot.
+   *
+   * Whether an effect is doing something is a rule the pipeline already owns;
+   * naming the stage here lets the panel ask rather than guess.
+   */
+  stage?: string;
+  /**
+   * What to set when the effect is switched on, as paths to values.
+   *
+   * An effect that arrives at zero and has to be dialled up is two actions
+   * where there should be one: switching it on should show you what it does.
+   * These are the settings that make it obvious, not subtle ones.
+   */
+  turnOn?: Record<string, number>;
+  params: ParamSpec[];
+}
+
+/** Overrides for one renderer, keyed by the same dotted paths. */
+export type ParamValues = Record<string, number>;
+
+/** Every renderer's overrides, keyed by VisualPattern. */
+export type AllParamValues = Record<string, ParamValues>;
+
+/** Read the number at a dotted path, or undefined if the path does not resolve. */
+export function getByPath(source: unknown, path: string): number | undefined {
+  let node: unknown = source;
+  for (const key of path.split('.')) {
+    if (typeof node !== 'object' || node === null) return undefined;
+    node = (node as Record<string, unknown>)[key];
+  }
+  return typeof node === 'number' ? node : undefined;
+}
+
+/**
+ * A deep copy of `defaults` with each override applied at its path.
+ *
+ * Called when a value changes, not per frame, so the copy is cheap. Paths that
+ * do not resolve to an existing number are ignored — a stale override left in
+ * localStorage by a renamed parameter must not invent a new config key.
+ */
+export function withOverrides<T>(defaults: T, values: ParamValues): T {
+  const copy = structuredClone(defaults);
+  for (const [path, value] of Object.entries(values)) {
+    if (!Number.isFinite(value)) continue;
+    if (getByPath(defaults, path) === undefined) continue;
+
+    const keys = path.split('.');
+    const leaf = keys.pop()!;
+    let node: Record<string, unknown> = copy as Record<string, unknown>;
+    for (const key of keys) node = node[key] as Record<string, unknown>;
+    node[leaf] = value;
+  }
+  return copy;
+}
+
+/**
+ * Coerce anything that came out of localStorage into overrides we can trust.
+ *
+ * A hand-edited or half-written entry must not be able to take the app down:
+ * `withOverrides` already ignores unknown paths, but the slider UI would still
+ * try to render whatever sits at a known one. Anything that is not a finite
+ * number is dropped here, at the boundary, so everything downstream is typed
+ * correctly and true.
+ */
+export function sanitizeAllParams(raw: unknown): AllParamValues {
+  if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return {};
+
+  const clean: AllParamValues = {};
+  for (const [pattern, values] of Object.entries(raw)) {
+    if (typeof values !== 'object' || values === null || Array.isArray(values)) continue;
+
+    const kept: ParamValues = {};
+    for (const [path, value] of Object.entries(values)) {
+      if (typeof value === 'number' && Number.isFinite(value)) kept[path] = value;
+    }
+    if (Object.keys(kept).length > 0) clean[pattern] = kept;
+  }
+  return clean;
+}
