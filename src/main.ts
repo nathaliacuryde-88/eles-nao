@@ -1,6 +1,6 @@
 import { BigTypeRenderer } from './app/components/renderers/BigTypeRenderer';
 import { SlapRenderer } from './app/components/renderers/SlapRenderer';
-import { LHand, Sparks, Victory } from './fx';
+import { LHand, Sparks, Victory, type StarStyle } from './fx';
 import { Sound } from './sound';
 import { generateColors } from './app/config/palette';
 import { advanceClock, useLayerClock } from './app/motion/clock';
@@ -61,6 +61,12 @@ const VANISH = 0.5;
 /** After the star: when the button to play again shows, and when it starts again by itself. */
 const AGAIN_AFTER = 2.5;
 const AGAIN_BY_ITSELF = 20;
+/**
+ * The star at the end: 'scatter', rough red stars filling the screen round
+ * the one with 13, or 'echo', the one star with its repeats behind it.
+ * ?estrela=eco at the end of the address shows the echo.
+ */
+const STAR_STYLE: StarStyle = new URLSearchParams(location.search).get('estrela') === 'eco' ? 'echo' : 'scatter';
 /** How fast the words dance while the star is up: at least as fast as five fingers. */
 const VICTORY_PACE = 1.6;
 
@@ -114,7 +120,7 @@ function setHands(data: HandData) {
 const gesture = createGestureState();
 let last = performance.now();
 const sparks = new Sparks();
-const victory = new Victory();
+const victory = new Victory(STAR_STYLE);
 const lhand = new LHand();
 const sound = new Sound();
 // Where the words have been pushed to, and how fast they are going.

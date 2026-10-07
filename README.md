@@ -4,9 +4,10 @@ Bata nele até ele sumir. Uma peça interativa no navegador, quase um jogo:
 levante as mãos na frente da câmera e bata — tapa de mão aberta, soco de punho
 fechado. Cada golpe faz barulho, solta estrelinhas brancas e encolhe a cabeça;
 o soco encolhe mais. As palavras atrás se movem com as mãos e com os golpes,
-menos que a cabeça. Quando ela some, entra uma grande estrela vermelha com o
-13, com as suas repetições vibrando atrás, e a mão para de seguir a câmera e
-faz o L. Um dedo deixa tudo lento, cinco aceleram. Bater palma não faz nada.
+menos que a cabeça. Quando ela some, estrelas vermelhas irregulares aparecem
+uma a uma até encher a tela, em volta de uma estrela com o 13, e a mão para de
+seguir a câmera e faz o L. (O estilo anterior, uma estrela só com as suas
+repetições vibrando atrás, continua em `?estrela=eco` no fim do link.) Um dedo deixa tudo lento, cinco aceleram. Bater palma não faz nada.
 
 O som (só saída, nada de microfone) liga e desliga no ícone do canto inferior
 esquerdo, ou com M. Os créditos abrem no canto inferior direito.

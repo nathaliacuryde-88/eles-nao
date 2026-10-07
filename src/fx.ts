@@ -8,8 +8,12 @@
  *   Sparks   little white five-pointed stars thrown off where a blow lands,
  *            and a ring knocked out from it
  *   Victory  he is gone: a big solid red star with 13 on it lands in the
- *            middle, its repeats opening out behind it, fainter and fainter,
- *            vibrating, and white stars falling round it
+ *            middle, in one of two styles —
+ *              scatter  rough, many-pointed red stars pop up one by one
+ *                       round it until they fill the screen, their points
+ *                       stretching and swaying as if drawn frame by frame
+ *              echo     its repeats opening out behind it, fainter and
+ *                       fainter, vibrating, and white stars falling round it
  *   LHand    and the hand stops following the camera and makes an L
  * ═══════════════════════════════════════════════════════════════════════════
  */
@@ -168,6 +172,15 @@ const ECHO_STEP = 0.17;
 const ECHO_ALPHA = 0.3;
 
 /** Where the big star stands, and how big: its middle and the reach of its points. */
+export type StarStyle = 'scatter' | 'echo';
+
+/** Scatter: when the first rough star arrives, how soon each next one does, and how long each takes to pop up. */
+const FIELD_FROM = 0.3;
+const FIELD_EVERY = 0.065;
+const FIELD_POP = 0.22;
+/** Their reds: a few shades, so the ones that overlap still read apart from each other and from the star with 13. */
+const FIELD_REDS = ['#c8101d', '#ff5260', '#a50b16', '#e41725'];
+
 export function starGeometry(width: number, height: number) {
   // Big: a third of the frame's height, or most of a phone's width.
   const R = Math.min(width * 0.4, height * 0.3);
@@ -185,6 +198,11 @@ export class Victory {
   private landed = false;
   private slammed = false;
   private showered = 0;
+  // Scatter: the star with 13, and the field of stars round it, laid out on first draw.
+  private central: Rough = makeRough(5, 0);
+  private field: FieldStar[] | null = null;
+
+  constructor(private readonly style: StarStyle = 'scatter') {}
 
   get showing() {
     return this.t >= 0;
@@ -202,6 +220,10 @@ export class Victory {
     this.landed = false;
     this.slammed = false;
     this.showered = 0;
+    // A little rough, but its middle kept wide enough for the 13.
+    this.central = makeRough(5, 0.35);
+    this.central.inner = this.central.inner.map(() => 0.38 + Math.random() * 0.04);
+    this.field = null;
   }
 
   /** Clears away. */
@@ -223,19 +245,20 @@ export class Victory {
     const m = Math.min(width, height);
     const { cx, cy, R } = starGeometry(width, height);
 
-    // The moments, each once.
-    if (!this.landed && t >= STAR_LANDS) {
+    // The moments, each once. (Echo only: the scatter fills the screen itself.)
+    const echo = this.style === 'echo';
+    if (echo && !this.landed && t >= STAR_LANDS) {
       this.landed = true;
       this.sparks.ring(cx, cy, Math.hypot(width, height) * 0.6, m * 0.03, 0.9);
       this.sparks.burst(cx, cy, { count: 36, size: m * 0.05, speed: m * 1.6, life: 1.4 });
     }
     if (!this.slammed && t >= NUMBER_SLAMS) {
       this.slammed = true;
-      this.sparks.ring(cx, cy, R * 1.5, m * 0.018, 0.5);
-      this.sparks.burst(cx, cy, { count: 18, size: m * 0.035, speed: m * 1.1, life: 1 });
+      if (echo) this.sparks.ring(cx, cy, R * 1.5, m * 0.018, 0.5);
+      if (echo) this.sparks.burst(cx, cy, { count: 18, size: m * 0.035, speed: m * 1.1, life: 1 });
     }
     // Once it has settled, a steady fall of white stars from round its edge.
-    if (t > STAR_SETTLES && !this.leaving) {
+    if (echo && t > STAR_SETTLES && !this.leaving) {
       const due = Math.floor((t - STAR_SETTLES) * 9);
       for (; this.showered < due; this.showered++) {
         const a = Math.random() * TAU;
@@ -272,25 +295,15 @@ export class Victory {
       const y = cy + (Math.random() - 0.5) * shake;
       const r = R * Math.max(0, scale);
 
-      // Its repeats, opening out from it as it lands, each bigger and
-      // fainter than the last, and vibrating: a quick pulse running out
-      // through them, and a shiver that grows toward the outside.
-      const open = ease((t - STAR_LANDS) / 0.8);
-      ctx.fillStyle = RED;
-      for (let k = ECHOES; k >= 1 && open > 0; k--) {
-        const pulse = 1 + 0.035 * Math.sin(t * 9 - k * 0.9);
-        const er = r * (1 + k * ECHO_STEP * open) * pulse;
-        const shiver = R * 0.012 * Math.sqrt(k);
-        ctx.globalAlpha = this.fade * ECHO_ALPHA * (1 - (k - 1) / ECHOES);
-        starPath(ctx, x + (Math.random() - 0.5) * shiver, y + (Math.random() - 0.5) * shiver,
-          er, er * INNER, turn + 0.03 * Math.sin(t * 7 + k * 1.3));
+      if (echo) {
+        this.drawEchoes(ctx, x, y, r, turn, t);
+      } else {
+        this.drawField(ctx, width, height, t);
+        ctx.globalAlpha = this.fade;
+        ctx.fillStyle = RED;
+        roughPath(ctx, x, y, r, turn, this.central, t, 0.35);
         ctx.fill();
       }
-
-      // The star itself, solid.
-      ctx.globalAlpha = this.fade;
-      starPath(ctx, x, y, r, r * INNER, turn);
-      ctx.fill();
 
       // 13, slammed down on it like a stamp.
       const n = (t - NUMBER_IN) / (NUMBER_SLAMS - NUMBER_IN);
@@ -310,6 +323,160 @@ export class Victory {
     this.sparks.draw(ctx);
     ctx.restore();
   }
+
+  /**
+   * Echo: the star's repeats, opening out from it as it lands, each bigger
+   * and fainter than the last, and vibrating — a quick pulse running out
+   * through them, and a shiver that grows toward the outside — then the
+   * star itself, solid, on top.
+   */
+  private drawEchoes(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, turn: number, t: number) {
+    const open = ease((t - STAR_LANDS) / 0.8);
+    ctx.fillStyle = RED;
+    for (let k = ECHOES; k >= 1 && open > 0; k--) {
+      const pulse = 1 + 0.035 * Math.sin(t * 9 - k * 0.9);
+      const er = r * (1 + k * ECHO_STEP * open) * pulse;
+      const shiver = r * 0.012 * Math.sqrt(k);
+      ctx.globalAlpha = this.fade * ECHO_ALPHA * (1 - (k - 1) / ECHOES);
+      starPath(ctx, x + (Math.random() - 0.5) * shiver, y + (Math.random() - 0.5) * shiver,
+        er, er * INNER, turn + 0.03 * Math.sin(t * 7 + k * 1.3));
+      ctx.fill();
+    }
+    ctx.globalAlpha = this.fade;
+    starPath(ctx, x, y, r, r * INNER, turn);
+    ctx.fill();
+  }
+
+  /** Scatter: the rough stars round the one with 13, each popping up in its turn. */
+  private drawField(ctx: CanvasRenderingContext2D, width: number, height: number, t: number) {
+    if (!this.field) this.field = layField(width, height);
+    const m = Math.min(width, height);
+    this.field.forEach((star, i) => {
+      const u = (t - FIELD_FROM - i * FIELD_EVERY) / FIELD_POP;
+      if (u <= 0) return;
+      const r = star.size * m * backOut(Math.min(1, u)) * (1 + 0.04 * Math.sin(t * 2 + i));
+      ctx.globalAlpha = this.fade;
+      ctx.fillStyle = star.colour;
+      roughPath(ctx, star.x * width, star.y * height, r, star.turn + star.spin * t, star.shape, t + i, 1);
+      ctx.fill();
+    });
+  }
+}
+
+// ── the rough stars ──────────────────────────────────────────────────────────
+
+/** A rough star's make: each point's angle, reach and sway, and how deep each inner corner is. */
+interface Rough {
+  points: { a: number; reach: number; phase: number; speed: number }[];
+  /** The inner corners, as a share of the radius, one after each point. */
+  inner: number[];
+  seed: number;
+}
+
+interface FieldStar {
+  /** Its middle, as a share of the frame; its size, as a share of the frame's shorter side. */
+  x: number;
+  y: number;
+  size: number;
+  turn: number;
+  spin: number;
+  colour: string;
+  shape: Rough;
+}
+
+/** A star of `n` points, `wild` from 0 (regular) to 1 (as uneven as the poster's). */
+function makeRough(n: number, wild: number): Rough {
+  const step = TAU / n;
+  const points = Array.from({ length: n }, (_, k) => ({
+    a: k * step + (Math.random() - 0.5) * step * 0.55 * wild,
+    reach: 1 - Math.random() * 0.45 * wild,
+    phase: Math.random() * TAU,
+    speed: 1.2 + Math.random() * 1.6,
+  }));
+  const inner = points.map(() => 0.4 - Math.random() * 0.12 * wild);
+  return { points, inner, seed: Math.random() * 1000 };
+}
+
+/**
+ * Where the field's stars go: spread over the whole frame and a little past
+ * its edges, each placed where it is furthest from the others and from the
+ * star in the middle (Mitchell's best candidate), so they fill the screen
+ * evenly, in the order they will arrive.
+ */
+function layField(width: number, height: number): FieldStar[] {
+  const m = Math.min(width, height);
+  // Sized by the whole screen, not just its short side, so a tall phone fills too.
+  const unit = Math.max(m, Math.sqrt(width * height) * 0.8);
+  const { cx, cy, R } = starGeometry(width, height);
+  const count = Math.round(Math.max(16, Math.min(26, (width * height) / (unit * 0.24) ** 2)));
+  const placed: { x: number; y: number; r: number }[] = [{ x: cx, y: cy, r: R }];
+  const stars: FieldStar[] = [];
+  for (let i = 0; i < count; i++) {
+    const r = unit * (0.11 + Math.random() * 0.13);
+    let best = { x: 0, y: 0, score: -Infinity };
+    for (let c = 0; c < 16; c++) {
+      const x = (Math.random() * 1.08 - 0.04) * width;
+      const y = (Math.random() * 1.08 - 0.04) * height;
+      const score = Math.min(...placed.map((p) => Math.hypot(p.x - x, p.y - y) - p.r * 0.7));
+      if (score > best.score) best = { x, y, score };
+    }
+    placed.push({ x: best.x, y: best.y, r });
+    stars.push({
+      x: best.x / width,
+      y: best.y / height,
+      size: r / m,
+      turn: Math.random() * TAU,
+      spin: (Math.random() - 0.5) * 0.4,
+      colour: FIELD_REDS[i % FIELD_REDS.length],
+      shape: makeRough([5, 5, 6, 6, 7, 8][Math.floor(Math.random() * 6)], 1),
+    });
+  }
+  return stars;
+}
+
+/**
+ * A rough star's outline: sharp points, sides bowed a little inward, and an
+ * edge that wobbles. The points stretch and sway smoothly; the wobble is
+ * redrawn ten times a second, so it boils like a drawing done frame by frame.
+ */
+function roughPath(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, turn: number, s: Rough, t: number, wild: number) {
+  const frame = Math.floor(t * 10);
+  const n = s.points.length;
+  const corners: [number, number][] = [];
+  for (let k = 0; k < n; k++) {
+    const p = s.points[k];
+    const next = s.points[(k + 1) % n].a + (k === n - 1 ? TAU : 0);
+    const a = turn + p.a + 0.08 * wild * Math.sin(t * p.speed * 0.7 + p.phase);
+    const reach = r * p.reach * (1 + 0.14 * wild * Math.sin(t * p.speed + p.phase));
+    corners.push([x + Math.cos(a) * reach, y + Math.sin(a) * reach]);
+    const ia = turn + (p.a + next) / 2;
+    const ir = r * s.inner[k] * (1 + 0.08 * wild * Math.sin(t * 1.3 + k + p.phase));
+    corners.push([x + Math.cos(ia) * ir, y + Math.sin(ia) * ir]);
+  }
+  ctx.beginPath();
+  ctx.moveTo(corners[0][0], corners[0][1]);
+  for (let e = 0; e < corners.length; e++) {
+    const [ax, ay] = corners[e];
+    const [bx, by] = corners[(e + 1) % corners.length];
+    const len = Math.hypot(bx - ax, by - ay) || 1;
+    // Along the side: bowed toward the middle, and wobbling either way of it.
+    const nx = -(by - ay) / len;
+    const ny = (bx - ax) / len;
+    const inward = Math.sign(nx * (x - (ax + bx) / 2) + ny * (y - (ay + by) / 2)) || 1;
+    for (let j = 1; j <= 4; j++) {
+      const f = j / 4;
+      const bow = j < 4 ? inward * Math.sin(Math.PI * f) * len * 0.06 : 0;
+      const wob = j < 4 ? (hash(s.seed, e, j, frame) - 0.5) * 2 * r * 0.018 * Math.max(0.4, wild) : 0;
+      ctx.lineTo(ax + (bx - ax) * f + nx * (bow + wob), ay + (by - ay) * f + ny * (bow + wob));
+    }
+  }
+  ctx.closePath();
+}
+
+/** A steady random number, 0 to 1, for the same four numbers. */
+function hash(a: number, b: number, c: number, d: number) {
+  const v = Math.sin(a * 12.9898 + b * 78.233 + c * 37.719 + d * 4.581) * 43758.5453;
+  return v - Math.floor(v);
 }
 
 /**
