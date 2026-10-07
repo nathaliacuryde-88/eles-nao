@@ -91,9 +91,16 @@ const DISTANCE = 14;
 const HAND_SCALE = 0.81;
 const HAND_SCALE_PHONE = 0.72;
 
-function handScale(width: number, height: number) {
-  const phone = Math.min(width, height) < 600 || window.matchMedia?.('(pointer: coarse)').matches;
-  return phone ? HAND_SCALE_PHONE : HAND_SCALE;
+/**
+ * How thick the fingers are drawn, as a share of their tracked width: thinner
+ * on a phone (or a narrow window), where the hand is small, so spread fingers
+ * still show apart from each other rather than running together.
+ */
+const FINGER_WIDTH = 0.8;
+const FINGER_WIDTH_PHONE = 0.6;
+
+function isPhone(width: number, height: number) {
+  return Math.min(width, height) < 600 || width < 720 || !!window.matchMedia?.('(pointer: coarse)').matches;
 }
 
 export class SlapRenderer {
@@ -488,6 +495,7 @@ export class SlapRenderer {
   private shape = document.createElement('canvas');
   private ring = document.createElement('canvas');
   private layer = document.createElement('canvas');
+  private fingerWidth = FINGER_WIDTH;
 
   /**
    * Draws hands, in the same outline, onto another canvas: the game's, over
@@ -504,7 +512,9 @@ export class SlapRenderer {
       if (!lm || lm.length < 21) continue;
       const raw = lm.map((p) => [p.x * width, p.y * height] as [number, number]);
       // Drawn smaller than tracked, about its own middle.
-      const k = handScale(width, height);
+      const phone = isPhone(width, height);
+      const k = phone ? HAND_SCALE_PHONE : HAND_SCALE;
+      this.fingerWidth = phone ? FINGER_WIDTH_PHONE : FINGER_WIDTH;
       const cx = raw.reduce((t, p) => t + p[0], 0) / raw.length;
       const cy = raw.reduce((t, p) => t + p[1], 0) / raw.length;
       const pts = raw.map(([x, y]) => [cx + (x - cx) * k, cy + (y - cy) * k] as [number, number]);
@@ -560,7 +570,7 @@ export class SlapRenderer {
       const [joints, base] = SlapRenderer.FINGERS[f];
       for (let k = 0; k < joints.length - 1; k++) {
         // Tapering toward the tip.
-        g.lineWidth = size * base * (1 - k * 0.1);
+        g.lineWidth = size * base * this.fingerWidth * (1 - k * 0.1);
         g.beginPath();
         g.moveTo(P[joints[k]][0], P[joints[k]][1]);
         g.lineTo(P[joints[k + 1]][0], P[joints[k + 1]][1]);

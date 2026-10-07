@@ -137,12 +137,14 @@ function frame() {
   advanceClock(delta, [rate, phase === 'won' ? Math.max(rate, VICTORY_PACE) : rate]);
   play(delta);
   moveWords(delta);
+  const music = sound.listen();
 
   try {
     useLayerClock(0);
     slap.render(calm, SLAP_COLOURS, undefined);
     useLayerClock(1);
-    type.render(calm, TYPE_COLOURS, undefined);
+    // While the star is up the words dance to the music.
+    type.render(calm, TYPE_COLOURS, music);
   } catch (error) {
     console.error(error);
   }
@@ -164,7 +166,7 @@ function frame() {
   out.globalCompositeOperation = 'source-over';
   out.globalAlpha = 1;
 
-  victory.draw(out, stage.width, stage.height, delta);
+  victory.draw(out, stage.width, stage.height, delta, music?.onset ?? 0);
   lhand.draw(stage.width, stage.height, delta, victory.opacity, (h, alpha, front) => slap.drawHandsOn(out, h, alpha, front));
   if (lhand.showing && !victory.showing) lhand.stop();
   sparks.update(delta);

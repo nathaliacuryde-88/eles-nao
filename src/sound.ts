@@ -15,6 +15,7 @@
  */
 
 import musicUrl from './app/assets/lula-la-loop.wav?url';
+import type { AudioData } from './app/App';
 
 const SAVED = 'eles-nao.sound';
 /** How loud the music plays, how long it takes to come in, and to go. */
@@ -33,6 +34,14 @@ export class Sound {
   private loading = false;
   private wantMusic = false;
   private playing: { src: AudioBufferSourceNode; gain: GainNode } | null = null;
+  // Listening to the music (not a microphone): its bands, and its beat.
+  private analyser: AnalyserNode | null = null;
+  private bins = new Uint8Array(0);
+  private floats = new Float32Array(0);
+  private bassAverage = 0;
+  private lastBeat = 0;
+  private lastListen = 0;
+  private onset = 0;
   on = true;
 
   constructor() {
@@ -111,9 +120,67 @@ export class Sound {
     const gain = ctx.createGain();
     gain.gain.setValueAtTime(0, t);
     gain.gain.linearRampToValueAtTime(MUSIC_LEVEL, t + MUSIC_IN);
-    src.connect(gain).connect(this.master);
+    // Heard before its fade, so the stars and words move with it from the start.
+    const analyser = ctx.createAnalyser();
+    analyser.fftSize = 1024;
+    analyser.smoothingTimeConstant = 0.3;
+    this.analyser = analyser;
+    this.bins = new Uint8Array(analyser.frequencyBinCount);
+    this.floats = new Float32Array(analyser.frequencyBinCount);
+    src.connect(analyser).connect(gain).connect(this.master);
     src.start(t);
     this.playing = { src, gain };
+  }
+
+  /**
+   * What the music is doing now, as the visuals read it: how much bass,
+   * middle and top, and whether a beat just landed: the bass's energy half
+   * as much again as its last quarter second (tuned on the loop, it finds
+   * about two a second, the jingle's own beat). Nothing while the music is
+   * not playing.
+   */
+  listen(): AudioData | undefined {
+    const ctx = this.ctx;
+    if (!ctx || !this.playing || !this.analyser) return undefined;
+    this.analyser.getByteFrequencyData(this.bins);
+    const hz = ctx.sampleRate / this.analyser.fftSize;
+    const band = (lo: number, hi: number) => {
+      const a = Math.max(1, Math.floor(lo / hz));
+      const b = Math.min(this.bins.length - 1, Math.ceil(hi / hz));
+      let sum = 0;
+      for (let i = a; i <= b; i++) sum += this.bins[i];
+      return sum / ((b - a + 1) * 255);
+    };
+    const bass = band(20, 160);
+    // The beat, from the bass's energy in linear terms (the dB bytes above
+    // flatten it: the bass is near the top of them all the time).
+    this.analyser.getFloatFrequencyData(this.floats);
+    let energy = 0;
+    const top = Math.max(2, Math.floor(160 / hz));
+    for (let i = 1; i <= top; i++) energy += 10 ** (this.floats[i] / 10);
+    energy /= top;
+    const now = ctx.currentTime;
+    const dt = Math.min(0.1, Math.max(0, now - this.lastListen));
+    this.lastListen = now;
+    const ratio = this.bassAverage > 0 ? energy / this.bassAverage : 1;
+    const beat = ratio > 1.5 && now - this.lastBeat > 0.25;
+    const beatIntensity = beat ? Math.min(1, (ratio - 1.5) / 1.5 + 0.4) : 0;
+    if (beat) {
+      this.lastBeat = now;
+      this.onset = Math.max(this.onset, 0.6 + beatIntensity * 0.4);
+    }
+    this.onset *= Math.exp(-dt / 0.25);
+    this.bassAverage = this.bassAverage > 0 ? this.bassAverage + (energy - this.bassAverage) * Math.min(1, dt / 0.25) : energy;
+    return {
+      bass,
+      lowMid: band(160, 800),
+      mid: band(800, 4000),
+      high: band(4000, 12000),
+      overall: band(20, 12000),
+      beat,
+      beatIntensity,
+      onset: this.onset,
+    };
   }
 
   /** The music fades out and stops. */
