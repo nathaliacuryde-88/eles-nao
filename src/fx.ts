@@ -511,6 +511,9 @@ function layField(width: number, height: number): FieldStar[] {
       colour: FIELD_REDS[i % FIELD_REDS.length],
     });
   }
+  // The star furthest left is always one of the pink ones.
+  const left = stars.reduce((a, b) => (b.x < a.x ? b : a));
+  left.colour = FIELD_REDS[1];
   return stars;
 }
 
@@ -599,13 +602,13 @@ export class LHand {
     this.t += dt;
     const k = smoothstep(this.t / L_FORMS);
 
-    // Where the L goes: beside the star when there is room, over its lower
-    // right point on a narrow screen, bobbing gently once it is made.
+    // Where the L goes: beside the star, to its right when there is room and
+    // over its right point on a narrow screen, bobbing gently once it is made.
     const { cx, cy, R } = starGeometry(width, height);
     const s = R * 0.55;
     const wide = width >= height;
-    const ax = wide ? cx + R * 1.5 : cx + R * 0.55;
-    const ay = (wide ? cy : cy + R * 1.25) + Math.sin(this.t * 2.6) * 0.04 * s * smoothstep(this.t - L_FORMS);
+    const ax = wide ? cx + R * 1.5 : cx + R * 0.7;
+    const ay = (wide ? cy : cy + R * 0.6) + Math.sin(this.t * 2.6) * 0.04 * s * smoothstep(this.t - L_FORMS);
     const wx = ax - 0.35 * s;
     const wy = ay + 0.83 * s;
     // With nothing to move from, it grows in where it will stand.
