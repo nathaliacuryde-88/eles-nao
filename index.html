@@ -6,9 +6,9 @@
     <meta name="color-scheme" content="dark" />
     <meta name="theme-color" content="#000000" />
     <title>ELE(S) NÃO!</title>
-    <meta name="description" content="Dê um tapa. Use as mãos na frente da câmera." />
+    <meta name="description" content="Bata nele com as mãos, na frente da câmera, até ele sumir." />
     <meta property="og:title" content="ELE(S) NÃO!" />
-    <meta property="og:description" content="Dê um tapa. Use as mãos na frente da câmera." />
+    <meta property="og:description" content="Bata nele com as mãos, na frente da câmera, até ele sumir." />
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%23000'/%3E%3Ctext x='16' y='24' font-family='Arial Black,Arial' font-weight='900' font-size='22' text-anchor='middle' fill='%23ff202f'%3E!%3C/text%3E%3C/svg%3E" />
     <style>
       html, body { height: 100%; margin: 0; background: #000; color: #fff; overflow: hidden; }
@@ -22,7 +22,7 @@
       #intro.gone { opacity: 0; pointer-events: none; }
       #intro p { margin: 0; max-width: 30em; color: rgba(255, 255, 255, 0.75); letter-spacing: 0.04em; }
       #intro small { color: rgba(255, 255, 255, 0.45); }
-      #start {
+      #start, #again {
         padding: 14px 34px; border: 0; border-radius: 999px; background: #ff202f; color: #000;
         font: inherit; font-size: 14px; font-weight: 700; letter-spacing: 0.18em; cursor: pointer;
       }
@@ -37,18 +37,42 @@
         font-size: 10px; text-align: right;
       }
       #credit a { color: inherit; }
+      #score {
+        position: fixed; left: 14px; top: max(12px, env(safe-area-inset-top)); color: rgba(255, 255, 255, 0.75);
+        font-size: 12px; font-weight: 700; letter-spacing: 0.18em; display: none;
+      }
+      #score.shown { display: block; }
+      #score.bump { animation: bump 0.25s ease-out; }
+      @keyframes bump { from { transform: scale(1.25); color: #fff; } to { transform: scale(1); } }
+      #won {
+        position: fixed; left: 0; right: 0; bottom: max(6vh, env(safe-area-inset-bottom)); display: grid;
+        justify-items: center; gap: 14px; padding: 0 16px; text-align: center; opacity: 0; pointer-events: none;
+        transition: opacity 0.6s ease;
+      }
+      #won.shown { opacity: 1; }
+      #won p { margin: 0; color: rgba(255, 255, 255, 0.85); font-size: 13px; letter-spacing: 0.18em; text-transform: uppercase; }
+      #again { visibility: hidden; opacity: 0; transition: opacity 0.6s ease; }
+      #won.ready { pointer-events: auto; }
+      #won.ready #again { visibility: visible; opacity: 1; }
     </style>
   </head>
   <body>
     <canvas id="stage"></canvas>
 
     <div id="intro">
-      <p>Levante as mãos na frente da câmera e dê um tapa — mão aberta ou punho fechado.<br />Bata palmas para explodir.</p>
+      <p>Levante as mãos na frente da câmera e bata nele: tapa de mão aberta, soco de punho fechado.<br />Cada golpe encolhe a cabeça, o soco encolhe mais. Faça ele sumir.</p>
       <button id="start">ENTRAR</button>
       <small>A câmera fica só no seu navegador: nada é gravado nem enviado.</small>
     </div>
 
     <div id="note"></div>
+
+    <div id="score"></div>
+
+    <div id="won">
+      <p id="tally"></p>
+      <button id="again">DE NOVO</button>
+    </div>
 
     <div id="credit">
       Modelo 3D <a href="https://sketchfab.com/3d-models/jair-bolsonaro-6ac0a141bab743c5bab4c520f104a475" target="_blank" rel="noopener">“Jair Bolsonaro”</a>

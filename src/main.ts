@@ -1,5 +1,6 @@
 import { BigTypeRenderer } from './app/components/renderers/BigTypeRenderer';
 import { SlapRenderer } from './app/components/renderers/SlapRenderer';
+import { Sparks, Victory } from './fx';
 import { generateColors } from './app/config/palette';
 import { advanceClock, useLayerClock } from './app/motion/clock';
 import { createGestureState, gestureRate } from './app/hands/gesture';
@@ -15,7 +16,11 @@ import type { HandData } from './app/App';
  *   1  Slap      the head, slapped and punched by your hands, at 100%
  *   2  Big Type  the words, sheared letter by letter, at 75%, in Difference
  *
- * One finger slows everything, five speed it up, a clap explodes.
+ * One finger slows everything, five speed it up. A clap does nothing.
+ *
+ * And a small game on top: every blow shrinks him, a punch more than a slap,
+ * throwing off little white stars, until he is gone and a big red star with
+ * 13 on it lands in his place.
  * ═══════════════════════════════════════════════════════════════════════════
  */
 
@@ -42,6 +47,20 @@ const TYPE_OPACITY = 0.75;
 
 const SLAP_COLOURS = generateColors(260, 100, 'black');
 const TYPE_COLOURS = [INK, '#ffffff', INK, INK];
+
+/** The game. How much of him there is to start with, and what each blow takes off. */
+const WHOLE = 100;
+const SLAP_DAMAGE = 7;
+const PUNCH_DAMAGE = 13;
+/** How small he gets before the last blow takes him away, as a share of his size. */
+const SMALLEST = 0.16;
+/** How long he takes to go once the last blow lands, in seconds. */
+const VANISH = 0.5;
+/** After the star: when the button to play again shows, and when it starts again by itself. */
+const AGAIN_AFTER = 2.5;
+const AGAIN_BY_ITSELF = 20;
+/** How fast the words dance while the star is up: at least as fast as five fingers. */
+const VICTORY_PACE = 1.6;
 
 const stage = document.getElementById('stage') as HTMLCanvasElement;
 const out = stage.getContext('2d')!;
@@ -71,19 +90,24 @@ window.addEventListener('resize', resize);
 let hands: HandData = { left: null, right: null };
 const gesture = createGestureState();
 let last = performance.now();
+const sparks = new Sparks();
+const victory = new Victory();
 
 function frame() {
   const now = performance.now();
   const delta = Math.min(0.1, (now - last) / 1000);
   last = now;
-  const rate = gestureRate(hands, gesture, delta);
-  advanceClock(delta, [rate, rate]);
+  // A clap does nothing: none of the layers, nor the tempo, ever hears of one.
+  const calm: HandData = { ...hands, clapping: false, clapIntensity: 0 };
+  const rate = gestureRate(calm, gesture, delta);
+  advanceClock(delta, [rate, phase === 'won' ? Math.max(rate, VICTORY_PACE) : rate]);
+  play(delta);
 
   try {
     useLayerClock(0);
-    slap.render(hands, SLAP_COLOURS, undefined);
+    slap.render(calm, SLAP_COLOURS, undefined);
     useLayerClock(1);
-    type.render(hands, TYPE_COLOURS, undefined);
+    type.render(calm, TYPE_COLOURS, undefined);
   } catch (error) {
     console.error(error);
   }
@@ -98,9 +122,143 @@ function frame() {
   out.drawImage(above.canvas, 0, 0);
   out.globalCompositeOperation = 'source-over';
   out.globalAlpha = 1;
+
+  victory.draw(out, stage.width, stage.height, delta);
+  sparks.update(delta);
+  sparks.draw(out);
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
+
+// ── the game ─────────────────────────────────────────────────────────────────
+
+const score = document.getElementById('score')!;
+const won = document.getElementById('won')!;
+const tally = document.getElementById('tally')!;
+const again = document.getElementById('again') as HTMLButtonElement;
+
+type Phase = 'playing' | 'vanishing' | 'won';
+let phase: Phase = 'playing';
+let phaseTime = 0;
+let left = WHOLE;
+let slaps = 0;
+let punches = 0;
+let firstBlow = 0;
+let took = 0;
+// His size, on a spring, so each blow shrinks him with a little bounce.
+let size = 1;
+let sizeVel = 0;
+let vanishFrom = 1;
+
+slap.onHit = (hit) => {
+  if (phase !== 'playing') return;
+  if (hit.punch) punches++;
+  else slaps++;
+  if (slaps + punches === 1) firstBlow = performance.now();
+  left = Math.max(0, left - (hit.punch ? PUNCH_DAMAGE : SLAP_DAMAGE));
+
+  // Little white stars, knocked off the side the hand came in from.
+  const m = Math.min(stage.width, stage.height);
+  const x = hit.x * stage.width;
+  const y = hit.y * stage.height;
+  if (hit.punch) {
+    sparks.burst(x, y, { count: 14, size: m * 0.065, speed: m * 1.05, dx: -hit.dx, dy: -hit.dy, spread: 1.7 });
+    sparks.ring(x, y, m * 0.12, m * 0.012);
+  } else {
+    sparks.burst(x, y, { count: 8, size: m * 0.045, speed: m * 0.75, dx: -hit.dx, dy: -hit.dy, spread: 1.6 });
+    sparks.ring(x, y, m * 0.07, m * 0.006);
+  }
+  showScore(true);
+
+  if (left <= 0) {
+    phase = 'vanishing';
+    phaseTime = 0;
+    vanishFrom = size;
+    took = (performance.now() - firstBlow) / 1000;
+  }
+};
+
+/** Runs the game one frame on: his size, the end, the start again. */
+function play(delta: number) {
+  phaseTime += delta;
+  if (phase === 'playing') {
+    const target = SMALLEST + (1 - SMALLEST) * (left / WHOLE);
+    // In small steps: a stiff spring on a long frame would fly apart.
+    for (let t = delta; t > 0; t -= 1 / 120) {
+      const dt = Math.min(t, 1 / 120);
+      sizeVel += ((target - size) * 160 - sizeVel * 14) * dt;
+      size += sizeVel * dt;
+    }
+  } else if (phase === 'vanishing') {
+    // Swells for an instant, then is gone.
+    const u = Math.min(1, phaseTime / VANISH);
+    size = vanishFrom * Math.max(0, 1 - backIn(u));
+    if (u >= 1) win();
+  } else if (phaseTime > AGAIN_BY_ITSELF) {
+    playAgain();
+  } else if (phaseTime > AGAIN_AFTER) {
+    won.classList.add('ready');
+  }
+  slap.setScale(size);
+  slap.setHittable(phase === 'playing' && !hands.clapping);
+}
+
+function win() {
+  const { x, y } = slap.where();
+  const m = Math.min(stage.width, stage.height);
+  sparks.burst(x * stage.width, y * stage.height, { count: 40, size: m * 0.045, speed: m * 1.5, life: 1.3 });
+  phase = 'won';
+  phaseTime = 0;
+  size = 0;
+  victory.start();
+  score.classList.remove('shown');
+  const count = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+  const seconds = Math.round(took);
+  tally.textContent = `${count(slaps, 'tapa', 'tapas')} · ${count(punches, 'soco', 'socos')} · `
+    + `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
+  won.classList.add('shown');
+}
+
+function playAgain() {
+  if (phase !== 'won') return;
+  phase = 'playing';
+  phaseTime = 0;
+  left = WHOLE;
+  slaps = 0;
+  punches = 0;
+  // Back from nothing, popping up to full size on the spring.
+  size = 0;
+  sizeVel = 0;
+  slap.reset();
+  victory.leave();
+  won.classList.remove('shown', 'ready');
+  showScore(false);
+}
+
+/** The count of blows, top left, once the hands are in. */
+let tracking = false;
+function showScore(bump: boolean) {
+  score.textContent = `TAPAS ${slaps} · SOCOS ${punches}`;
+  if (!tracking) return;
+  score.classList.add('shown');
+  if (bump) {
+    score.classList.remove('bump');
+    void score.offsetWidth;
+    score.classList.add('bump');
+  }
+}
+showScore(false);
+
+again.addEventListener('click', playAgain);
+// Its double-click is two clicks on the button, not a request for fullscreen.
+again.addEventListener('dblclick', (e) => e.stopPropagation());
+window.addEventListener('keydown', (e) => { if (e.key === 'r' || e.key === 'R' || e.key === 'Enter') playAgain(); });
+
+/** 0 to 1, pulling back a little before it goes. */
+function backIn(x: number) {
+  const c = 1.9;
+  return (c + 1) * x ** 3 - c * x ** 2;
+}
 
 // ── the camera ───────────────────────────────────────────────────────────────
 
@@ -138,6 +296,8 @@ async function begin() {
   try {
     await trackHands(video, (data) => { hands = data; });
     note.classList.remove('shown');
+    tracking = true;
+    if (phase !== 'won') showScore(false);
   } catch (error) {
     console.error(error);
     tell('não deu para carregar o rastreio das mãos — recarregue a página');
@@ -158,7 +318,8 @@ function toggleFullscreen() {
 window.addEventListener('dblclick', toggleFullscreen);
 window.addEventListener('keydown', (e) => { if (e.key === 'f' || e.key === 'F') toggleFullscreen(); });
 
-// For testing with made-up hands while developing.
+// For testing with made-up hands while developing, and where the head is, to aim them.
 if (import.meta.env.DEV) {
   (window as unknown as { setHands: (h: HandData) => void }).setHands = (h) => { hands = h; };
+  (window as unknown as { where: () => unknown }).where = () => slap.where();
 }

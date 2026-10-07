@@ -1,8 +1,18 @@
 # ELE(S) NÃO!
 
-Dê um tapa nele. Uma peça interativa no navegador: levante as mãos na frente
-da câmera e bata — mão aberta ou punho fechado. Palmas explodem tudo; um dedo
-deixa tudo lento, cinco aceleram.
+Bata nele até ele sumir. Uma peça interativa no navegador, quase um jogo:
+levante as mãos na frente da câmera e bata — tapa de mão aberta, soco de punho
+fechado. Cada golpe solta estrelinhas brancas e encolhe a cabeça; o soco
+encolhe mais. Quando ela some, entra uma grande estrela vermelha com o 13.
+Um dedo deixa tudo lento, cinco aceleram. Bater palma não faz nada.
+
+| | |
+|---|---|
+| Tapa (mão aberta) | tira 7 de 100 |
+| Soco (punho fechado) | tira 13 de 100 |
+| Depois da estrela | **DE NOVO** (ou R / Enter) recomeça; sozinho, recomeça em 20 s |
+
+Os valores ficam no topo de `src/main.ts`.
 
 **Abrir:** https://nathaliacuryde-88.github.io/eles-nao/
 
