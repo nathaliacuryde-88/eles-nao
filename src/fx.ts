@@ -9,9 +9,10 @@
  *            and a ring knocked out from it
  *   Victory  he is gone: a big solid red star with 13 on it lands in the
  *            middle, in one of two styles —
- *              scatter  rough, many-pointed red stars pop up one by one
- *                       round it until they fill the screen, their points
- *                       stretching and swaying as if drawn frame by frame
+ *              scatter  rough red five-pointed stars, drawn after two of
+ *                       Nath's own, pop up one by one round it until they
+ *                       fill the screen; their points keep moving, so the
+ *                       stars stretch and rearrange themselves
  *              echo     its repeats opening out behind it, fainter and
  *                       fainter, vibrating, and white stars falling round it
  *   LHand    and the hand stops following the camera and makes an L
@@ -171,7 +172,6 @@ const ECHOES = 7;
 const ECHO_STEP = 0.17;
 const ECHO_ALPHA = 0.3;
 
-/** Where the big star stands, and how big: its middle and the reach of its points. */
 export type StarStyle = 'scatter' | 'echo';
 
 /** Scatter: when the first rough star arrives, how soon each next one does, and how long each takes to pop up. */
@@ -180,7 +180,10 @@ const FIELD_EVERY = 0.065;
 const FIELD_POP = 0.22;
 /** Their reds: a few shades, so the ones that overlap still read apart from each other and from the star with 13. */
 const FIELD_REDS = ['#c8101d', '#ff5260', '#a50b16', '#e41725'];
+/** How long each takes to move from one shape and place to the next. It never stops between them. */
+const SHAPE_EVERY = 1.6;
 
+/** Where the big star stands, and how big: its middle and the reach of its points. */
 export function starGeometry(width: number, height: number) {
   // Big: a third of the frame's height, or most of a phone's width.
   const R = Math.min(width * 0.4, height * 0.3);
@@ -199,7 +202,7 @@ export class Victory {
   private slammed = false;
   private showered = 0;
   // Scatter: the star with 13, and the field of stars round it, laid out on first draw.
-  private central: Rough = makeRough(5, 0);
+  private central = Math.random() * 1000;
   private field: FieldStar[] | null = null;
 
   constructor(private readonly style: StarStyle = 'scatter') {}
@@ -220,9 +223,7 @@ export class Victory {
     this.landed = false;
     this.slammed = false;
     this.showered = 0;
-    // A little rough, but its middle kept wide enough for the 13.
-    this.central = makeRough(5, 0.35);
-    this.central.inner = this.central.inner.map(() => 0.38 + Math.random() * 0.04);
+    this.central = Math.random() * 1000;
     this.field = null;
   }
 
@@ -301,7 +302,8 @@ export class Victory {
         this.drawField(ctx, width, height, t);
         ctx.globalAlpha = this.fade;
         ctx.fillStyle = RED;
-        roughPath(ctx, x, y, r, turn, this.central, t, 0.35);
+        // A little rough and moving too, but its middle kept wide for the 13.
+        roughStar(ctx, x, y, r, turn, this.central, t, true);
         ctx.fill();
       }
 
@@ -357,7 +359,7 @@ export class Victory {
       const r = star.size * m * backOut(Math.min(1, u)) * (1 + 0.04 * Math.sin(t * 2 + i));
       ctx.globalAlpha = this.fade;
       ctx.fillStyle = star.colour;
-      roughPath(ctx, star.x * width, star.y * height, r, star.turn + star.spin * t, star.shape, t + i, 1);
+      roughStar(ctx, star.x * width, star.y * height, r, star.turn, star.seed, t + star.phase, false);
       ctx.fill();
     });
   }
@@ -365,36 +367,106 @@ export class Victory {
 
 // ── the rough stars ──────────────────────────────────────────────────────────
 
-/** A rough star's make: each point's angle, reach and sway, and how deep each inner corner is. */
-interface Rough {
-  points: { a: number; reach: number; phase: number; speed: number }[];
-  /** The inner corners, as a share of the radius, one after each point. */
-  inner: number[];
-  seed: number;
-}
+/**
+ * Nath's two stars (estrela-01.svg and estrela-02.svg), as their ten corners
+ * round their middle — point, inner corner, point… — each an angle and a
+ * distance, the points' distances averaging 1, turned so the first point is
+ * straight up. Every rough star is one of these, bent a little further.
+ */
+const TEMPLATES: [number, number][][] = [
+  [[-2.438, 1.187], [-1.857, 0.457], [-1.3, 0.908], [-0.444, 0.328], [0.232, 1.004],
+    [0.598, 0.41], [1.304, 1.044], [1.665, 0.467], [2.395, 0.857], [2.967, 0.228]],
+  [[-1.924, 1.059], [-1.591, 0.346], [-0.735, 1.092], [0.16, 0.3], [0.71, 0.928],
+    [1.614, 0.33], [1.785, 1.159], [2.529, 0.439], [2.803, 0.761], [3.836, 0.431]],
+].map((corners) => corners.map(([a, r]) => [a - corners[0][0] - Math.PI / 2, r] as [number, number]));
+/** A regular star's corners, the same way round: what the star with 13 leans toward. */
+const REGULAR: [number, number][] = Array.from({ length: 10 }, (_, k) => [-Math.PI / 2 + (k * Math.PI) / 5, k % 2 ? 0.4 : 1]);
 
 interface FieldStar {
-  /** Its middle, as a share of the frame; its size, as a share of the frame's shorter side. */
+  /** Its home, as a share of the frame; its size, as a share of the frame's shorter side. */
   x: number;
   y: number;
   size: number;
   turn: number;
-  spin: number;
+  seed: number;
+  /** Where it is in its round of shapes, so they do not all move together. */
+  phase: number;
   colour: string;
-  shape: Rough;
 }
 
-/** A star of `n` points, `wild` from 0 (regular) to 1 (as uneven as the poster's). */
-function makeRough(n: number, wild: number): Rough {
-  const step = TAU / n;
-  const points = Array.from({ length: n }, (_, k) => ({
-    a: k * step + (Math.random() - 0.5) * step * 0.55 * wild,
-    reach: 1 - Math.random() * 0.45 * wild,
-    phase: Math.random() * TAU,
-    speed: 1.2 + Math.random() * 1.6,
-  }));
-  const inner = points.map(() => 0.4 - Math.random() * 0.12 * wild);
-  return { points, inner, seed: Math.random() * 1000 };
+/** One of a star's shapes: where it stands (in its own radii from home), its turn, and its ten corners. */
+interface Shape {
+  dx: number;
+  dy: number;
+  turn: number;
+  corners: [number, number][];
+  /** How late each corner sets off toward the next shape, as a share of the move. */
+  lag: number[];
+}
+
+/**
+ * A star's `i`th shape, the same every time for the same seed: one of the
+ * two templates, turned, its points pulled longer or shorter and nudged
+ * round, its inner corners deeper or shallower, and moved off its home — so
+ * from one shape to the next the star stretches and goes somewhere else.
+ * The star with 13 (`steady`) stays home and stays close to regular.
+ */
+function shapeAt(seed: number, i: number, steady: boolean): Shape {
+  const rnd = (c: number) => hash(seed, i, c, 3.7);
+  const template = TEMPLATES[rnd(0) < 0.5 ? 0 : 1];
+  const wild = steady ? 0.3 : 1;
+  const corners = template.map(([a, r], k) => {
+    // Nudged round no further than a third of the way to either neighbour, so corners never cross.
+    const prev = template[(k + 9) % 10][0] - (k === 0 ? TAU : 0);
+    const next = template[(k + 1) % 10][0] + (k === 9 ? TAU : 0);
+    const room = Math.min(a - prev, next - a) / 3;
+    const tip = k % 2 === 0;
+    let angle = a + (rnd(1 + k) - 0.5) * 2 * room * wild;
+    let reach = r * (tip ? 0.7 + rnd(11 + k) * 0.75 : 0.85 + rnd(11 + k) * 0.3);
+    if (tip && rnd(21 + k) < 0.15) reach *= 1.35;
+    if (steady) {
+      // Mostly regular, its middle wide enough for the 13.
+      angle = REGULAR[k][0] + (angle - REGULAR[k][0]) * 0.35;
+      reach = tip ? 0.9 + (reach - 1) * 0.15 : Math.max(0.38, 0.4 + (reach - 0.4) * 0.3);
+    }
+    return [angle, reach] as [number, number];
+  });
+  const tipLag = [0, 2, 4, 6, 8].map((k) => rnd(31 + k) * 0.35 * wild);
+  const lag = corners.map((_, k) => (k % 2 === 0 ? tipLag[k / 2] : (tipLag[(k - 1) / 2] + tipLag[((k + 1) / 2) % 5]) / 2));
+  return {
+    dx: steady ? 0 : (rnd(41) - 0.5) * 1.2,
+    dy: steady ? 0 : (rnd(42) - 0.5) * 1.2,
+    turn: (rnd(43) - 0.5) * (steady ? 0.15 : 1.4) + i * (hash(seed, 0, 44, 1) - 0.5) * 0.6 * wild,
+    corners,
+    lag,
+  };
+}
+
+/**
+ * A rough star at time `t`, on its way from one shape to the next: its
+ * middle and turn move smoothly, and each corner follows a little late, by
+ * its own amount — so its points reach out and pull in one by one and the
+ * star stretches as it goes. Straight sides, sharp corners.
+ */
+function roughStar(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, turn: number, seed: number, t: number, steady: boolean) {
+  const u = Math.max(0, t) / SHAPE_EVERY;
+  const i = Math.floor(u);
+  const f = u - i;
+  const from = shapeAt(seed, i, steady);
+  const to = shapeAt(seed, i + 1, steady);
+  const go = easeInOut(f);
+  const cx = x + lerp(from.dx, to.dx, go) * r;
+  const cy = y + lerp(from.dy, to.dy, go) * r;
+  const spin = turn + lerp(from.turn, to.turn, go);
+  ctx.beginPath();
+  for (let k = 0; k < 10; k++) {
+    const g = easeInOut((f - from.lag[k]) / (1 - 0.35));
+    const a = spin + lerp(from.corners[k][0], to.corners[k][0], g);
+    const d = r * lerp(from.corners[k][1], to.corners[k][1], g);
+    if (k === 0) ctx.moveTo(cx + Math.cos(a) * d, cy + Math.sin(a) * d);
+    else ctx.lineTo(cx + Math.cos(a) * d, cy + Math.sin(a) * d);
+  }
+  ctx.closePath();
 }
 
 /**
@@ -408,11 +480,11 @@ function layField(width: number, height: number): FieldStar[] {
   // Sized by the whole screen, not just its short side, so a tall phone fills too.
   const unit = Math.max(m, Math.sqrt(width * height) * 0.8);
   const { cx, cy, R } = starGeometry(width, height);
-  const count = Math.round(Math.max(16, Math.min(26, (width * height) / (unit * 0.24) ** 2)));
+  const count = Math.round(Math.max(14, Math.min(22, (width * height) / (unit * 0.26) ** 2)));
   const placed: { x: number; y: number; r: number }[] = [{ x: cx, y: cy, r: R }];
   const stars: FieldStar[] = [];
   for (let i = 0; i < count; i++) {
-    const r = unit * (0.11 + Math.random() * 0.13);
+    const r = unit * (0.12 + Math.random() * 0.14);
     let best = { x: 0, y: 0, score: -Infinity };
     for (let c = 0; c < 16; c++) {
       const x = (Math.random() * 1.08 - 0.04) * width;
@@ -426,57 +498,24 @@ function layField(width: number, height: number): FieldStar[] {
       y: best.y / height,
       size: r / m,
       turn: Math.random() * TAU,
-      spin: (Math.random() - 0.5) * 0.4,
+      seed: Math.random() * 1000,
+      phase: Math.random() * SHAPE_EVERY,
       colour: FIELD_REDS[i % FIELD_REDS.length],
-      shape: makeRough([5, 5, 6, 6, 7, 8][Math.floor(Math.random() * 6)], 1),
     });
   }
   return stars;
-}
-
-/**
- * A rough star's outline: sharp points, sides bowed a little inward, and an
- * edge that wobbles. The points stretch and sway smoothly; the wobble is
- * redrawn ten times a second, so it boils like a drawing done frame by frame.
- */
-function roughPath(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, turn: number, s: Rough, t: number, wild: number) {
-  const frame = Math.floor(t * 10);
-  const n = s.points.length;
-  const corners: [number, number][] = [];
-  for (let k = 0; k < n; k++) {
-    const p = s.points[k];
-    const next = s.points[(k + 1) % n].a + (k === n - 1 ? TAU : 0);
-    const a = turn + p.a + 0.08 * wild * Math.sin(t * p.speed * 0.7 + p.phase);
-    const reach = r * p.reach * (1 + 0.14 * wild * Math.sin(t * p.speed + p.phase));
-    corners.push([x + Math.cos(a) * reach, y + Math.sin(a) * reach]);
-    const ia = turn + (p.a + next) / 2;
-    const ir = r * s.inner[k] * (1 + 0.08 * wild * Math.sin(t * 1.3 + k + p.phase));
-    corners.push([x + Math.cos(ia) * ir, y + Math.sin(ia) * ir]);
-  }
-  ctx.beginPath();
-  ctx.moveTo(corners[0][0], corners[0][1]);
-  for (let e = 0; e < corners.length; e++) {
-    const [ax, ay] = corners[e];
-    const [bx, by] = corners[(e + 1) % corners.length];
-    const len = Math.hypot(bx - ax, by - ay) || 1;
-    // Along the side: bowed toward the middle, and wobbling either way of it.
-    const nx = -(by - ay) / len;
-    const ny = (bx - ax) / len;
-    const inward = Math.sign(nx * (x - (ax + bx) / 2) + ny * (y - (ay + by) / 2)) || 1;
-    for (let j = 1; j <= 4; j++) {
-      const f = j / 4;
-      const bow = j < 4 ? inward * Math.sin(Math.PI * f) * len * 0.06 : 0;
-      const wob = j < 4 ? (hash(s.seed, e, j, frame) - 0.5) * 2 * r * 0.018 * Math.max(0.4, wild) : 0;
-      ctx.lineTo(ax + (bx - ax) * f + nx * (bow + wob), ay + (by - ay) * f + ny * (bow + wob));
-    }
-  }
-  ctx.closePath();
 }
 
 /** A steady random number, 0 to 1, for the same four numbers. */
 function hash(a: number, b: number, c: number, d: number) {
   const v = Math.sin(a * 12.9898 + b * 78.233 + c * 37.719 + d * 4.581) * 43758.5453;
   return v - Math.floor(v);
+}
+
+/** 0 to 1, starting and ending slowly. */
+function easeInOut(x: number) {
+  const u = Math.max(0, Math.min(1, x));
+  return u < 0.5 ? 4 * u * u * u : 1 - (-2 * u + 2) ** 3 / 2;
 }
 
 /**
@@ -507,10 +546,12 @@ const L_POSE: [number, number][] = [
   [0, 0], // wrist
   [0.3, -0.22], [0.58, -0.4], [0.86, -0.5], [1.12, -0.56], // thumb, out to the right
   [0.3, -0.95], [0.33, -1.4], [0.35, -1.7], [0.36, -1.95], // index, up
-  [0.05, -1], [0.07, -1.22], [0.06, -1.04], [0.05, -0.86], // middle, folded
-  [-0.18, -0.95], [-0.19, -1.15], [-0.18, -0.98], [-0.16, -0.82], // ring, folded
-  [-0.38, -0.84], [-0.4, -1], [-0.38, -0.86], [-0.35, -0.74], // little finger, folded
+  [0.05, -1], [0.07, -1.13], [0.06, -0.85], [0.05, -0.62], // middle, folded down over the palm
+  [-0.18, -0.95], [-0.19, -1.07], [-0.18, -0.8], [-0.16, -0.6], // ring, folded
+  [-0.38, -0.84], [-0.4, -0.95], [-0.38, -0.74], [-0.35, -0.58], // little finger, folded
 ];
+/** The three folded fingers, drawn each in its own outline in front of the palm, little finger first. */
+const L_FOLDED = [4, 3, 2];
 /** How long the hand takes to become the L, and the other one to go. */
 const L_FORMS = 0.9;
 const OTHER_GOES = 0.4;
@@ -545,7 +586,7 @@ export class LHand {
   }
 
   /** Draws them, through `paint`, the Slap's own hand outline, at `fade`. */
-  draw(width: number, height: number, dt: number, fade: number, paint: (hands: HandData, alpha: number) => void) {
+  draw(width: number, height: number, dt: number, fade: number, paint: (hands: HandData, alpha: number, front?: number[]) => void) {
     if (this.t < 0 || fade <= 0) return;
     this.t += dt;
     const k = smoothstep(this.t / L_FORMS);
@@ -565,7 +606,7 @@ export class LHand {
     const points = this.from
       ? target.map((p, i) => ({ x: lerp(this.from![i].x, p.x, k), y: lerp(this.from![i].y, p.y, k), z: 0 }))
       : target;
-    paint(asHands(points), fade * (this.from ? 1 : k));
+    paint(asHands(points), fade * (this.from ? 1 : k), L_FOLDED);
 
     if (this.other && this.t < OTHER_GOES) paint(asHands(this.other), fade * (1 - this.t / OTHER_GOES));
   }

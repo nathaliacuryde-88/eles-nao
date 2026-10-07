@@ -487,13 +487,18 @@ export class SlapRenderer {
    */
   private shape = document.createElement('canvas');
   private ring = document.createElement('canvas');
+  private layer = document.createElement('canvas');
 
-  /** Draws hands, in the same outline, onto another canvas: the game's, over everything. */
-  drawHandsOn(ctx: CanvasRenderingContext2D, handData: HandData, alpha: number) {
-    if (alpha > 0) this.drawHands(ctx, handData, ctx.canvas.width, ctx.canvas.height, Math.min(1, alpha));
+  /**
+   * Draws hands, in the same outline, onto another canvas: the game's, over
+   * everything. `front` are fingers (0 thumb … 4 little) drawn as their own
+   * outlines in front of the palm, as when they are folded down over it.
+   */
+  drawHandsOn(ctx: CanvasRenderingContext2D, handData: HandData, alpha: number, front: number[] = []) {
+    if (alpha > 0) this.drawHands(ctx, handData, ctx.canvas.width, ctx.canvas.height, Math.min(1, alpha), front);
   }
 
-  private drawHands(ctx: CanvasRenderingContext2D, handData: HandData, width: number, height: number, alpha: number) {
+  private drawHands(ctx: CanvasRenderingContext2D, handData: HandData, width: number, height: number, alpha: number, front: number[] = []) {
     for (const hand of [handData.left, handData.right]) {
       const lm = hand?.landmarks;
       if (!lm || lm.length < 21) continue;
@@ -514,7 +519,7 @@ export class SlapRenderer {
       const w = Math.ceil(Math.max(...xs) + pad) - x0;
       const h = Math.ceil(Math.max(...ys) + pad) - y0;
       const local = pts.map(([x, y]) => [x - x0, y - y0] as [number, number]);
-      this.drawHand(ctx, local, size, w, h, x0, y0, alpha);
+      this.drawHand(ctx, local, size, w, h, x0, y0, alpha, front);
     }
   }
 
@@ -582,8 +587,8 @@ export class SlapRenderer {
     r.globalCompositeOperation = 'source-over';
   }
 
-  private drawHand(ctx: CanvasRenderingContext2D, P: [number, number][], size: number, w: number, h: number, x0: number, y0: number, alpha: number) {
-    for (const c of [this.shape, this.ring]) {
+  private drawHand(ctx: CanvasRenderingContext2D, P: [number, number][], size: number, w: number, h: number, x0: number, y0: number, alpha: number, front: number[] = []) {
+    for (const c of [this.shape, this.ring, this.layer]) {
       if (c.width < w || c.height < h) { c.width = Math.max(c.width, w); c.height = Math.max(c.height, h); }
     }
     const g = this.shape.getContext('2d')!;
@@ -601,7 +606,34 @@ export class SlapRenderer {
     ctx.shadowColor = 'rgba(170, 220, 255, 0.9)';
     ctx.shadowBlur = size * 0.1;
     this.edgeOf(w, h, line, '#ffffff');
-    ctx.drawImage(this.ring, 0, 0, w, h, x0, y0, w, h);
+    if (!front.length) {
+      ctx.drawImage(this.ring, 0, 0, w, h, x0, y0, w, h);
+      ctx.shadowBlur = 0;
+      ctx.restore();
+      return;
+    }
+
+    // Fingers in front: the hand's outline and then each finger, in a layer
+    // of its own, each finger first wiping out what is behind it — the
+    // palm's edge, a neighbour — then drawing its own faint inside and
+    // outline. The layer then goes on with the same glow.
+    const L = this.layer.getContext('2d')!;
+    L.globalCompositeOperation = 'source-over';
+    L.clearRect(0, 0, w, h);
+    L.drawImage(this.ring, 0, 0);
+    for (const f of front) {
+      g.clearRect(0, 0, this.shape.width, this.shape.height);
+      this.paintSilhouette(g, P, size, [f], false);
+      L.globalCompositeOperation = 'destination-out';
+      L.drawImage(this.shape, 0, 0);
+      L.globalCompositeOperation = 'source-over';
+      L.globalAlpha = 0.1 / 0.9;
+      L.drawImage(this.shape, 0, 0);
+      L.globalAlpha = 1;
+      this.edgeOf(w, h, line, '#ffffff');
+      L.drawImage(this.ring, 0, 0);
+    }
+    ctx.drawImage(this.layer, 0, 0, w, h, x0, y0, w, h);
     ctx.shadowBlur = 0;
     ctx.restore();
   }
