@@ -165,7 +165,7 @@ function frame() {
   out.globalAlpha = 1;
 
   victory.draw(out, stage.width, stage.height, delta);
-  lhand.draw(stage.width, stage.height, delta, victory.opacity, (h, alpha) => slap.drawHandsOn(out, h, alpha));
+  lhand.draw(stage.width, stage.height, delta, victory.opacity, (h, alpha, front) => slap.drawHandsOn(out, h, alpha, front));
   if (lhand.showing && !victory.showing) lhand.stop();
   sparks.update(delta);
   sparks.draw(out);
@@ -262,6 +262,7 @@ function win() {
   phaseTime = 0;
   size = 0;
   victory.start();
+  sound.startMusic();
   // The hands as they were a moment ago: one of them will make the L.
   const recent = (side: 'left' | 'right') => (performance.now() - seen[side].at < 1500 ? seen[side].hand : null);
   lhand.start({ left: recent('left'), right: recent('right') });
@@ -285,6 +286,7 @@ function playAgain() {
   sizeVel = 0;
   slap.reset();
   victory.leave();
+  sound.stopMusic();
   won.classList.remove('shown', 'ready');
   showScore(false);
 }

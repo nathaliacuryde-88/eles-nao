@@ -7,16 +7,32 @@
  * pitched a little differently every time, so a run of them does not sound
  * like one sample on repeat.
  *
+ * And at the end, music: 23.5 to 39 seconds of "Lula lá", round and round
+ * while the star is up — cut so its end runs into its start with no click.
+ *
  * This only plays. It never listens: there is still no microphone.
  * ═══════════════════════════════════════════════════════════════════════════
  */
 
+import musicUrl from './app/assets/lula-la-loop.wav?url';
+
 const SAVED = 'eles-nao.sound';
+/** How loud the music plays, how long it takes to come in, and to go. */
+const MUSIC_LEVEL = 0.75;
+const MUSIC_IN = 0.4;
+const MUSIC_OUT = 0.6;
 
 export class Sound {
   private ctx: AudioContext | null = null;
+  /** Everything passes through here: the switch turns it up and down. */
+  private master: GainNode | null = null;
+  /** The blows, squeezed so a run of them never clips. */
   private out: GainNode | null = null;
   private noise: AudioBuffer | null = null;
+  private music: AudioBuffer | null = null;
+  private loading = false;
+  private wantMusic = false;
+  private playing: { src: AudioBufferSourceNode; gain: GainNode } | null = null;
   on = true;
 
   constructor() {
@@ -32,21 +48,26 @@ export class Sound {
     try {
       if (!this.ctx) {
         const ctx = new AudioContext();
+        const master = ctx.createGain();
+        master.gain.value = this.on ? 1 : 0;
+        master.connect(ctx.destination);
         const squeeze = ctx.createDynamicsCompressor();
         squeeze.threshold.value = -10;
         squeeze.ratio.value = 6;
         const out = ctx.createGain();
         out.gain.value = 0.8;
-        out.connect(squeeze).connect(ctx.destination);
+        out.connect(squeeze).connect(master);
         // A second of white noise, the raw stuff of every smack and crunch.
         const noise = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate);
         const data = noise.getChannelData(0);
         for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
         this.ctx = ctx;
+        this.master = master;
         this.out = out;
         this.noise = noise;
       }
       if (this.ctx.state === 'suspended') this.ctx.resume().catch(() => {});
+      this.loadMusic();
     } catch (error) {
       console.error('No sound here:', error);
     }
@@ -54,11 +75,59 @@ export class Sound {
 
   setOn(on: boolean) {
     this.on = on;
+    if (this.ctx && this.master) this.master.gain.setTargetAtTime(on ? 1 : 0, this.ctx.currentTime, 0.05);
     try {
       localStorage.setItem(SAVED, on ? 'on' : 'off');
     } catch {
       // Not remembered, still switched.
     }
+  }
+
+  /** The music for the end, fetched once the audio is awake, so the game starts without waiting for it. */
+  private loadMusic() {
+    const ctx = this.ctx;
+    if (!ctx || this.loading || this.music) return;
+    this.loading = true;
+    fetch(musicUrl)
+      .then((r) => r.arrayBuffer())
+      .then((data) => ctx.decodeAudioData(data))
+      .then((buffer) => {
+        this.music = buffer;
+        if (this.wantMusic) this.startMusic();
+      })
+      .catch((error) => console.error('The music did not load:', error))
+      .finally(() => { this.loading = false; });
+  }
+
+  /** The music, looping, coming in quickly. If it is still loading, it starts when it arrives. */
+  startMusic() {
+    this.wantMusic = true;
+    const ctx = this.ctx;
+    if (!ctx || !this.music || !this.master || this.playing) return;
+    const t = ctx.currentTime;
+    const src = ctx.createBufferSource();
+    src.buffer = this.music;
+    src.loop = true;
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(0.0001, t);
+    gain.gain.exponentialRampToValueAtTime(MUSIC_LEVEL, t + MUSIC_IN);
+    src.connect(gain).connect(this.master);
+    src.start(t);
+    this.playing = { src, gain };
+  }
+
+  /** The music fades out and stops. */
+  stopMusic() {
+    this.wantMusic = false;
+    const ctx = this.ctx;
+    if (!ctx || !this.playing) return;
+    const { src, gain } = this.playing;
+    this.playing = null;
+    const t = ctx.currentTime;
+    gain.gain.cancelScheduledValues(t);
+    gain.gain.setValueAtTime(gain.gain.value, t);
+    gain.gain.linearRampToValueAtTime(0, t + MUSIC_OUT);
+    src.stop(t + MUSIC_OUT + 0.05);
   }
 
   /** A punch: a thump that drops in pitch, a knock, and a short crunch. */
