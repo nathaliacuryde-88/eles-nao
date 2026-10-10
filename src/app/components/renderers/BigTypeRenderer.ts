@@ -385,10 +385,17 @@ export class BigTypeRenderer {
     const leading = 1.0;
     const rows = lines.length * repeat;
     // As big as fits: the widest line across, every row down.
-    const F = Math.min(
-      (width * 0.92) / widest,
-      (height * 0.9) / (rows * capH * (1 + 0.18 * leading)),
-    ) * cfg.type.size;
+    // Filling the height: the first row's highest point (the tilde over a
+    // Ã, say) at the top, the last baseline at the bottom.
+    const fill = cfg.type.fill >= 0.5;
+    const rise = Math.max(capH, (ctx.measureText(lines[0]).actualBoundingBoxAscent || 0) / 100) - capH;
+    const fillF = height / ((rows - 1) * capH * (1 + 0.18 * leading) + capH + rise);
+    const F = fill
+      ? Math.min(fillF, (width * 0.96) / widest)
+      : Math.min(
+        (width * 0.92) / widest,
+        (height * 0.9) / (rows * capH * (1 + 0.18 * leading)),
+      ) * cfg.type.size;
     const rowH = F * capH * (1 + 0.18 * leading);
     const top = (height - rowH * rows) / 2;
 
@@ -398,14 +405,17 @@ export class BigTypeRenderer {
     const lineW100 = lines.map((l) => ctx.measureText(l).width);
     const justify = cfg.type.justify >= 0.5;
     const fullRow = (height * 0.94) / rows / (capH * (1 + 0.18 * leading));
-    const sizes = Array.from({ length: rows }, () => (justify ? fullRow : F / cfg.type.size) * cfg.type.size);
+    const sizes = Array.from({ length: rows }, () => (fill ? F : (justify ? fullRow : F / cfg.type.size) * cfg.type.size));
     const stretch = sizes.map((f, r) => (justify
       ? Math.max(0.45, Math.min(3, (width * 0.94 * 100) / (lineW100[r % lines.length] * f / cfg.type.size)))
       : 1));
     const geo: { top: number; h: number; F: number }[] = [];
     {
       const total = sizes.reduce((a, f) => a + f * capH * (1 + 0.18 * leading), 0);
-      let y = (height - total) / 2;
+      // Filling, the first row is placed so its highest point touches the
+      // top (a row's letters sit in its middle, its leading split above and
+      // below); if the width held the words smaller, they are centred.
+      let y = fill && F >= fillF - 0.5 ? F * rise - F * capH * 0.09 * leading : (height - total) / 2;
       for (const f of sizes) {
         const h = f * capH * (1 + 0.18 * leading);
         geo.push({ top: y, h, F: f });
