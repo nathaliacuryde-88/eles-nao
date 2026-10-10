@@ -68,6 +68,12 @@ const AGAIN_BY_ITSELF = 20;
  */
 const STAR_STYLE: StarStyle = new URLSearchParams(location.search).get('estrela') === 'eco' ? 'echo' : 'scatter';
 /**
+ * ?camera at the end of the address shows the camera's picture in the top
+ * right corner, mirrored — for recording yourself playing. Without it, as
+ * always, the camera is only read, never shown.
+ */
+const SHOW_CAMERA = new URLSearchParams(location.search).has('camera');
+/**
  * While the star is up the words dance to the music rather than to the
  * hands: slowly between beats, leaping on each one, like the stars.
  */
@@ -364,6 +370,10 @@ async function begin() {
     video.muted = true;
     video.srcObject = stream;
     await video.play();
+    if (SHOW_CAMERA) {
+      video.id = 'camera';
+      document.body.appendChild(video);
+    }
   } catch (error) {
     console.error(error);
     intro.classList.add('gone');
