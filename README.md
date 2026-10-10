@@ -25,6 +25,10 @@ que estamos sentindo nesse momento.
 
 Os valores ficam no topo de `src/main.ts`.
 
+Para gravar a tela jogando: `?camera` no fim do link mostra a câmera no canto
+superior direito (https://nathaliacuryde-88.github.io/eles-nao/?camera). Sem
+ele, a câmera não aparece.
+
 **Abrir:** https://nathaliacuryde-88.github.io/eles-nao/
 
 A câmera fica só no navegador de quem abre: o rastreio das mãos
