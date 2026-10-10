@@ -18,6 +18,12 @@ export const BigTypeConfig = {
     colourway: 0,
     /** 1: every line its own size, filling the width, as the posters are. 0: one size for all. */
     justify: 1,
+    /**
+     * 1: the rows fill the frame's height exactly, the first row's top — an
+     * accent, if it has one — at the very top and the last baseline at the
+     * very bottom, cut off nowhere. 0: sized by `size`.
+     */
+    fill: 0,
   },
 
   dance: {

@@ -32,6 +32,8 @@ const WORDS = 'ELE(S) NÃO!';
 const TYPE = {
   'type.style': 3, // Shear
   'type.size': 1.6,
+  // The rows fill the screen's height exactly, the first tilde not cut off.
+  'type.fill': 1,
   'type.repeat': 4,
   'type.justify': 0, // Even
   'type.weight': 0, // Bold
@@ -73,6 +75,11 @@ const STAR_STYLE: StarStyle = new URLSearchParams(location.search).get('estrela'
  * always, the camera is only read, never shown.
  */
 const SHOW_CAMERA = new URLSearchParams(location.search).has('camera');
+/** With the camera, for the stories: these come in word by word first, then the page. */
+const STORY = ['Eu só fiz um lugar pra descarregar.', 'Já leu os motivos?', 'Agora solta a mão.'];
+/** How soon each word follows the last, and how long a whole line holds, in milliseconds. */
+const STORY_WORD = 140;
+const STORY_HOLD = 1300;
 /**
  * While the star is up the words dance to the music rather than to the
  * hands: slowly between beats, leaping on each one, like the stars.
@@ -438,6 +445,44 @@ credits.addEventListener('click', (e) => { if (e.target === credits) showCredits
 window.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !credits.hidden) showCredits(false); });
 // Double-clicks on these are clicks, not a request for fullscreen.
 for (const el of [soundSwitch, creditsOpen, credits]) el.addEventListener('dblclick', (e) => e.stopPropagation());
+
+// ── the opening, for the stories ─────────────────────────────────────────────
+
+/**
+ * Black, and the lines one after another, word by word, in the words' red
+ * and letters; then it fades and the entry is there. A click skips it.
+ */
+async function tellStory() {
+  const story = document.getElementById('story')!;
+  let skipped = false;
+  const skip = () => { skipped = true; };
+  story.addEventListener('click', skip);
+  story.hidden = false;
+  await document.fonts.ready;
+  const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
+  for (const sentence of STORY) {
+    if (skipped) break;
+    const line = document.createElement('p');
+    line.className = 'line';
+    sentence.split(' ').forEach((w, i) => {
+      const word = document.createElement('span');
+      word.className = 'word';
+      word.textContent = w;
+      word.style.animationDelay = `${i * STORY_WORD}ms`;
+      line.appendChild(word);
+    });
+    story.replaceChildren(line);
+    await wait(sentence.split(' ').length * STORY_WORD + STORY_HOLD);
+    if (sentence !== STORY[STORY.length - 1]) {
+      line.classList.add('out');
+      await wait(350);
+    }
+  }
+  story.classList.add('gone');
+  await wait(800);
+  story.hidden = true;
+}
+if (SHOW_CAMERA) tellStory();
 
 // For testing with made-up hands while developing, and where the head is, to aim them.
 if (import.meta.env.DEV) {
