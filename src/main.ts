@@ -75,15 +75,15 @@ const STAR_STYLE: StarStyle = new URLSearchParams(location.search).get('estrela'
  * always, the camera is only read, never shown.
  */
 const SHOW_CAMERA = new URLSearchParams(location.search).has('camera');
-/** With the camera, for the stories: these rise in one after another first, then the page. */
+/** With the camera, for the stories: these come in first, word by word, then the page. */
 const STORY = [
   'Os argumentos já estão por aí, e muita gente explica o porquê melhor do que eu.',
   'Eu fiz um lugar pra descarregar.',
   'Agora solta a mão.',
 ];
-/** How long each line holds, plus a little for each word in it, in milliseconds. */
-const STORY_HOLD = 1400;
-const STORY_WORD = 180;
+/** How soon each word follows the last, and how long a finished line holds, in milliseconds. */
+const STORY_WORD = 170;
+const STORY_HOLD = 1300;
 /**
  * While the star is up the words dance to the music rather than to the
  * hands: slowly between beats, leaping on each one, like the stars.
@@ -453,9 +453,10 @@ for (const el of [soundSwitch, creditsOpen, credits]) el.addEventListener('dblcl
 // ── the opening, for the stories ─────────────────────────────────────────────
 
 /**
- * Black, ELE(S) NÃO! on top, and the lines one after another, each rising
- * in from below and going on up out, in the words' red and letters; then
- * it fades and the entry is there. A click skips it.
+ * Black, ELE(S) NÃO! on top, and the lines one after another: each word
+ * rising into view out of a mask, one by one, and once the line is whole it
+ * fades out; in the words' red and letters. Then it all fades and the entry
+ * is there. A click skips it.
  */
 async function tellStory() {
   const story = document.getElementById('story')!;
@@ -472,12 +473,22 @@ async function tellStory() {
     if (skipped) break;
     const line = document.createElement('p');
     line.className = 'line';
-    line.textContent = sentence;
+    const words = sentence.split(' ');
+    words.forEach((w, i) => {
+      const mask = document.createElement('span');
+      mask.className = 'mask';
+      const word = document.createElement('span');
+      word.className = 'word';
+      word.textContent = w;
+      word.style.animationDelay = `${i * STORY_WORD}ms`;
+      mask.appendChild(word);
+      line.append(mask, ' ');
+    });
     story.replaceChildren(top, line);
-    await wait(STORY_HOLD + sentence.split(' ').length * STORY_WORD);
+    await wait(words.length * STORY_WORD + STORY_HOLD);
     if (sentence !== STORY[STORY.length - 1]) {
       line.classList.add('out');
-      await wait(450);
+      await wait(500);
     }
   }
   story.classList.add('gone');
