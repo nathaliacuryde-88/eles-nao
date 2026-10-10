@@ -76,7 +76,13 @@ const STAR_STYLE: StarStyle = new URLSearchParams(location.search).get('estrela'
  */
 const SHOW_CAMERA = new URLSearchParams(location.search).has('camera');
 /** With the camera, for the stories: these come in word by word first, then the page. */
-const STORY = ['Eu só fiz um lugar pra descarregar.', 'Já leu os motivos?', 'Agora solta a mão.'];
+const STORY = [
+  'Os argumentos já estão por aí,',
+  'e muita gente explica o porquê melhor do que eu.',
+  'Eu fiz um lugar pra descarregar.',
+  'Já leu os motivos?',
+  'Agora solta a mão.',
+];
 /** How soon each word follows the last, and how long a whole line holds, in milliseconds. */
 const STORY_WORD = 140;
 const STORY_HOLD = 1300;
@@ -458,6 +464,9 @@ async function tellStory() {
   const skip = () => { skipped = true; };
   story.addEventListener('click', skip);
   story.hidden = false;
+  const top = document.createElement('p');
+  top.className = 'top';
+  top.textContent = 'ELE(S) NÃO!';
   await document.fonts.ready;
   const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
   for (const sentence of STORY) {
@@ -471,7 +480,7 @@ async function tellStory() {
       word.style.animationDelay = `${i * STORY_WORD}ms`;
       line.appendChild(word);
     });
-    story.replaceChildren(line);
+    story.replaceChildren(top, line);
     await wait(sentence.split(' ').length * STORY_WORD + STORY_HOLD);
     if (sentence !== STORY[STORY.length - 1]) {
       line.classList.add('out');
