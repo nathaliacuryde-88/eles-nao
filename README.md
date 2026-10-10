@@ -42,7 +42,7 @@ Por Nathalia Cury ([@nathcury](https://www.instagram.com/nathcury/)), a partir d
 
 | | |
 |---|---|
-| [Jair Bolsonaro](https://sketchfab.com/3d-models/jair-bolsonaro-6ac0a141bab743c5bab4c520f104a475) por [lexferreira89](https://sketchfab.com/lexferreira89) | [CC BY 4.0](http://creativecommons.org/licenses/by/4.0/) — a cabeça, deformada e balançada ao vivo |
+| [Jair Bolsonaro](https://sketchfab.com/3d-models/jair-bolsonaro-6ac0a141bab743c5bab4c520f104a475) por [lexferreira89](https://sketchfab.com/lexferreira89) | [CC BY 4.0](http://creativecommons.org/licenses/by/4.0/) — a cabeça, adaptada (sobrancelhas franzidas, rosto mais pesado, cabelo com mais volume; ver `tools/sculpt.ts`, o original em `src/app/assets/head-original.glb`), deformada e balançada ao vivo |
 | [Strichpunkt Sans](https://fonts.google.com/specimen/Strichpunkt+Sans) por [Strichpunkt](https://github.com/strichpunkt-design/Strichpunkt_Sans) | SIL Open Font License 1.1 |
 | "Lula lá" (jingle) | trecho de 0:23,5 a 0:39, em loop na vitória (`src/app/assets/lula-la-loop.wav`) |
 | [three.js](https://threejs.org/) | MIT |
