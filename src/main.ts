@@ -68,7 +68,7 @@ const REASONS = [
   'Esse vai pelo Eduardo, que foi pedir tarifaço ao Trump.',
   'Porque o Flávio ofereceu as terras raras ao Trump.',
   'Esse é pela loja de chocolate do Flávio, que o MP chamou de lavanderia.',
-  'Pelo Jair, que tentou ficar no poder na marra.',
+  'Pelo Jair, que disse "não sou coveiro" na pandemia.',
   'Porque o Flávio empregou a mãe e a ex-mulher de um miliciano.',
   'Esse é pela anistia que o Flávio quer pros golpistas.',
   'Pelo Eduardo, que pediu sanções contra o Brasil pra salvar o pai.',
