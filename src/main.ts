@@ -214,6 +214,7 @@ function frame() {
   sparks.draw(out);
   callouts.draw(out, stage.width, stage.height, delta);
   drawCamera();
+  drawScore();
   showRecording();
   requestAnimationFrame(frame);
 }
@@ -344,15 +345,39 @@ function playAgain() {
 
 /** The count of blows, top left, once the hands are in. */
 let tracking = false;
+let bumped = -9;
 function showScore(bump: boolean) {
   score.textContent = `TAPAS ${slaps} · SOCOS ${punches}`;
-  if (!tracking) return;
-  score.classList.add('shown');
-  if (bump) {
-    score.classList.remove('bump');
-    void score.offsetWidth;
-    score.classList.add('bump');
+  if (bump) bumped = performance.now();
+}
+
+/**
+ * The score, drawn into the game's own frame so it is in a recording too:
+ * the count of blows top left while playing (jumping a little on each), and
+ * the final tally where the page puts it once he is gone.
+ */
+function drawScore() {
+  out.save();
+  out.font = '700 12px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace';
+  out.letterSpacing = '0.18em';
+  out.shadowColor = 'rgba(0, 0, 0, 0.9)';
+  out.shadowBlur = 6;
+  out.fillStyle = '#fff';
+  if ((tracking || intro.classList.contains('gone')) && phase !== 'won') {
+    const k = Math.max(0, 1 - (performance.now() - bumped) / 250);
+    out.translate(14, 20);
+    out.scale(1 + 0.25 * k, 1 + 0.25 * k);
+    out.globalAlpha = 0.8 + 0.2 * k;
+    out.textBaseline = 'middle';
+    out.fillText(score.textContent ?? '', 0, 0);
+  } else if (phase === 'won' && won.classList.contains('shown')) {
+    const r = tally.getBoundingClientRect();
+    out.font = '700 13px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace';
+    out.textAlign = 'center';
+    out.textBaseline = 'middle';
+    out.fillText((tally.textContent ?? '').toUpperCase(), r.left + r.width / 2, r.top + r.height / 2);
   }
+  out.restore();
 }
 showScore(false);
 
@@ -451,12 +476,8 @@ window.addEventListener('keydown', (e) => { if (e.key === 'f' || e.key === 'F') 
  * ?camera); the choice is remembered.
  */
 let cameraVideo: HTMLVideoElement | null = null;
-let cameraOn = SHOW_CAMERA;
-try {
-  if (!SHOW_CAMERA) cameraOn = localStorage.getItem('eles-nao.camera') === 'on';
-} catch {
-  // no storage: off
-}
+// On to start, always; the switch turns it off for this visit only.
+let cameraOn = true;
 const camSwitch = document.getElementById('cam') as HTMLButtonElement;
 function showCameraSwitch() {
   camSwitch.classList.toggle('off', !cameraOn);
@@ -464,7 +485,6 @@ function showCameraSwitch() {
 }
 function switchCamera() {
   cameraOn = !cameraOn;
-  try { localStorage.setItem('eles-nao.camera', cameraOn ? 'on' : 'off'); } catch { /* not remembered */ }
   showCameraSwitch();
 }
 showCameraSwitch();
