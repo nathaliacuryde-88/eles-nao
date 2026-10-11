@@ -74,6 +74,17 @@ const REASONS = [
   'Pelo Eduardo, que pediu sanções contra o Brasil pra salvar o pai.',
   'E esse porque o Flávio só é candidato porque o Jair está preso.',
 ];
+/** And, between them, what it is all for: one of these after every two of the above. */
+const CAUSES = [
+  'Pela Amazônia em pé.',
+  'Pelo SUS, que vacinou o Brasil quando o Jair duvidava da vacina.',
+  'Pela continuidade do Bolsa Família.',
+  'Pela proteção da Amazônia.',
+];
+/** The n-th blow's line: two reasons against, then a cause, and round again. */
+function lineFor(n: number) {
+  return n % 3 === 2 ? CAUSES[Math.floor(n / 3) % CAUSES.length] : REASONS[(n - Math.floor(n / 3)) % REASONS.length];
+}
 /** How small he gets before the last blow takes him away, as a share of his size. */
 const SMALLEST = 0.16;
 /** How long he takes to go once the last blow lands, in seconds. */
@@ -88,8 +99,8 @@ const AGAIN_BY_ITSELF = 20;
  */
 const STAR_STYLE: StarStyle = new URLSearchParams(location.search).get('estrela') === 'eco' ? 'echo' : 'scatter';
 /**
- * ?camera at the end of the address turns the camera's picture on (and plays
- * the opening for the stories). Without it the camera switch, bottom left,
+ * ?camera at the end of the address plays the opening for the stories, once,
+ * after the first round. Without it the camera switch, bottom left,
  * starts off.
  */
 const SHOW_CAMERA = new URLSearchParams(location.search).has('camera');
@@ -99,6 +110,8 @@ const STORY = [
   'Eu fiz um lugar pra descarregar.',
   'Agora solta a mão.',
 ];
+/** How long the star shows before the opening plays over it, in milliseconds. */
+const STORY_AFTER_WIN = 5000;
 /** How soon each word follows the last, and how long a finished line holds, in milliseconds. */
 const STORY_WORD = 170;
 const STORY_HOLD = 1300;
@@ -265,7 +278,7 @@ slap.onHit = (hit) => {
 
   // The reason for it, well out from the blow on the side the hand came from,
   // away from the middle of the screen.
-  callouts.add(REASONS[reason++ % REASONS.length], x - hit.dx * m * 0.3, y - hit.dy * m * 0.3 - m * 0.06, hit.dx, hit.dy);
+  callouts.add(lineFor(reason++), x - hit.dx * m * 0.3, y - hit.dy * m * 0.3 - m * 0.06, hit.dx, hit.dy);
 
   // The words, knocked the same way, less.
   const knock = m * (hit.punch ? WORDS_KNOCK.punch : WORDS_KNOCK.slap);
@@ -323,6 +336,12 @@ function win() {
   tally.textContent = `${count(slaps, 'tapa', 'tapas')} · ${count(punches, 'soco', 'socos')} · `
     + `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
   won.classList.add('shown');
+  // With ?camera, the opening for the stories plays once, after the first
+  // round's star has had its moment, and then the next round starts.
+  if (SHOW_CAMERA && !storyTold) {
+    storyTold = true;
+    setTimeout(() => { tellStory().then(playAgain); }, STORY_AFTER_WIN);
+  }
 }
 
 function playAgain() {
@@ -663,7 +682,7 @@ async function tellStory() {
   await wait(800);
   story.hidden = true;
 }
-if (SHOW_CAMERA) tellStory();
+let storyTold = false;
 
 // For testing with made-up hands while developing, and where the head is, to aim them.
 if (import.meta.env.DEV) {
