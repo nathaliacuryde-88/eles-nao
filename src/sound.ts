@@ -44,14 +44,12 @@ export class Sound {
   private lastBeat = 0;
   private lastListen = 0;
   private onset = 0;
+  /** Always on to start; the switch turns it off for this visit only. */
   on = true;
 
   constructor() {
-    try {
-      this.on = localStorage.getItem(SAVED) !== 'off';
-    } catch {
-      // No storage here (private window): sound on, not remembered.
-    }
+    // Forget the choice an earlier version remembered.
+    try { localStorage.removeItem(SAVED); } catch { /* no storage here */ }
   }
 
   /** Starts the audio. Browsers only allow it from a click or a key, so call it from one. */
@@ -95,11 +93,6 @@ export class Sound {
   setOn(on: boolean) {
     this.on = on;
     if (this.ctx && this.master) this.master.gain.setTargetAtTime(on ? 1 : 0, this.ctx.currentTime, 0.05);
-    try {
-      localStorage.setItem(SAVED, on ? 'on' : 'off');
-    } catch {
-      // Not remembered, still switched.
-    }
   }
 
   /** The music for the end, fetched once the audio is awake, so the game starts without waiting for it. */

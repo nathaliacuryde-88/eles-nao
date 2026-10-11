@@ -99,7 +99,6 @@
         position: fixed; left: 14px; top: max(12px, env(safe-area-inset-top)); color: rgba(255, 255, 255, 0.75);
         font-size: 12px; font-weight: 700; letter-spacing: 0.18em; display: none;
       }
-      #score.shown { display: block; }
       #score.bump { animation: bump 0.25s ease-out; }
       @keyframes bump { from { transform: scale(1.25); color: #fff; } to { transform: scale(1); } }
       #won {
@@ -108,7 +107,7 @@
         transition: opacity 0.6s ease;
       }
       #won.shown { opacity: 1; }
-      #won p { margin: 0; color: #fff; text-shadow: 0 0 6px #000, 0 0 2px #000; font-size: 13px; letter-spacing: 0.18em; text-transform: uppercase; }
+      #won p { margin: 0; visibility: hidden; color: #fff; text-shadow: 0 0 6px #000, 0 0 2px #000; font-size: 13px; letter-spacing: 0.18em; text-transform: uppercase; }
       #again { visibility: hidden; opacity: 0; transition: opacity 0.6s ease; }
       #won.ready #again { visibility: visible; opacity: 1; pointer-events: auto; }
     </style>
