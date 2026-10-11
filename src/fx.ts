@@ -668,7 +668,7 @@ interface Callout {
 const CALLOUT_LIFE = 2.6;
 
 /**
- * Why each blow lands: a line of text by the hit, small, bold, monospaced,
+ * Why each blow lands: a line of text out from the hit, small, bold, monospaced,
  * tilted the way the hand came in (never upside down), drifting a little
  * out and fading.
  */
@@ -691,7 +691,7 @@ export class Callouts {
   draw(ctx: CanvasRenderingContext2D, width: number, height: number, dt: number) {
     if (!this.list.length) return;
     const m = Math.min(width, height);
-    const size = Math.max(12, Math.min(20, m * 0.024));
+    const size = Math.max(10, Math.min(13, m * 0.016));
     ctx.save();
     ctx.font = `700 ${size}px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace`;
     ctx.textAlign = 'center';
@@ -708,8 +708,9 @@ export class Callouts {
       ctx.setTransform(1, 0, 0, 1, x, y);
       ctx.rotate(c.angle);
       ctx.globalAlpha = alpha;
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.75)';
-      ctx.fillRect(-w / 2 - size * 0.5, -size * 0.85, w + size, size * 1.7);
+      // No box: a soft dark shadow is enough to read it over the red.
+      ctx.shadowColor = 'rgba(0, 0, 0, 0.9)';
+      ctx.shadowBlur = size * 0.6;
       ctx.fillStyle = '#fff';
       ctx.fillText(c.text, 0, size * 0.05);
     }
