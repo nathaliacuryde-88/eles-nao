@@ -389,7 +389,9 @@ export class BigTypeRenderer {
     // Ã, say) at the top, the last baseline at the bottom.
     const fill = cfg.type.fill >= 0.5;
     const rise = Math.max(capH, (ctx.measureText(lines[0]).actualBoundingBoxAscent || 0) / 100) - capH;
-    const fillF = height / ((rows - 1) * capH * (1 + 0.18 * leading) + capH + rise);
+    // …and the last row's lowest point (a parenthesis below the line, say) at the bottom.
+    const fall = (ctx.measureText(lines[lines.length - 1]).actualBoundingBoxDescent || 0) / 100;
+    const fillF = height / ((rows - 1) * capH * (1 + 0.18 * leading) + capH + rise + fall);
     const F = fill
       ? Math.min(fillF, (width * 0.96) / widest)
       : Math.min(

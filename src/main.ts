@@ -26,7 +26,8 @@ import type { HandData } from './app/App';
  * ═══════════════════════════════════════════════════════════════════════════
  */
 
-const WORDS = 'ELE(S) NÃO!';
+/** Behind the head, six rows: NÃO! first, ELE(S) last. */
+const WORDS = 'NÃO! ELE(S)';
 
 /** Big Type, as it was set. */
 const TYPE = {
@@ -34,7 +35,7 @@ const TYPE = {
   'type.size': 1.6,
   // The rows fill the screen's height exactly, the first tilde not cut off.
   'type.fill': 1,
-  'type.repeat': 4,
+  'type.repeat': 3,
   'type.justify': 0, // Even
   'type.weight': 0, // Bold
   'type.colourway': 0, // ink on black
