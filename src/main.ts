@@ -88,9 +88,9 @@ const AGAIN_BY_ITSELF = 20;
  */
 const STAR_STYLE: StarStyle = new URLSearchParams(location.search).get('estrela') === 'eco' ? 'echo' : 'scatter';
 /**
- * ?camera at the end of the address shows the camera's picture in the top
- * right corner, mirrored — for recording yourself playing. Without it, as
- * always, the camera is only read, never shown.
+ * ?camera at the end of the address turns the camera's picture on (and plays
+ * the opening for the stories). Without it the camera switch, bottom left,
+ * starts off.
  */
 const SHOW_CAMERA = new URLSearchParams(location.search).has('camera');
 /** With the camera, for the stories: these come in first, word by word, then the page. */
@@ -213,6 +213,8 @@ function frame() {
   sparks.update(delta);
   sparks.draw(out);
   callouts.draw(out, stage.width, stage.height, delta);
+  drawCamera();
+  showRecording();
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
@@ -407,10 +409,7 @@ async function begin() {
     video.muted = true;
     video.srcObject = stream;
     await video.play();
-    if (SHOW_CAMERA) {
-      video.id = 'camera';
-      document.body.appendChild(video);
-    }
+    cameraVideo = video;
   } catch (error) {
     console.error(error);
     intro.classList.add('gone');
@@ -444,6 +443,129 @@ function toggleFullscreen() {
 window.addEventListener('dblclick', toggleFullscreen);
 window.addEventListener('keydown', (e) => { if (e.key === 'f' || e.key === 'F') toggleFullscreen(); });
 
+// ── the camera on screen, and recording ──────────────────────────────────────
+
+/**
+ * The camera's picture can be shown in the top right corner — drawn into the
+ * game's own frame, so it is in a recording too. Off unless switched on (or
+ * ?camera); the choice is remembered.
+ */
+let cameraVideo: HTMLVideoElement | null = null;
+let cameraOn = SHOW_CAMERA;
+try {
+  if (!SHOW_CAMERA) cameraOn = localStorage.getItem('eles-nao.camera') === 'on';
+} catch {
+  // no storage: off
+}
+const camSwitch = document.getElementById('cam') as HTMLButtonElement;
+function showCameraSwitch() {
+  camSwitch.classList.toggle('off', !cameraOn);
+  camSwitch.setAttribute('aria-label', cameraOn ? 'Esconder a câmera' : 'Mostrar a câmera');
+}
+function switchCamera() {
+  cameraOn = !cameraOn;
+  try { localStorage.setItem('eles-nao.camera', cameraOn ? 'on' : 'off'); } catch { /* not remembered */ }
+  showCameraSwitch();
+}
+showCameraSwitch();
+camSwitch.addEventListener('click', switchCamera);
+
+function drawCamera() {
+  const v = cameraVideo;
+  if (!cameraOn || !v || v.readyState < 2 || !v.videoWidth) return;
+  const w = Math.min(stage.width * 0.208, 192);
+  const h = w * 0.75;
+  const x = stage.width - w - 12;
+  const y = 12;
+  // Cropped to fill, mirrored like a mirror.
+  const scale = Math.max(w / v.videoWidth, h / v.videoHeight);
+  const sw = w / scale;
+  const sh = h / scale;
+  out.save();
+  out.beginPath();
+  out.roundRect(x, y, w, h, 12);
+  out.clip();
+  out.translate(x + w, y);
+  out.scale(-1, 1);
+  out.drawImage(v, (v.videoWidth - sw) / 2, (v.videoHeight - sh) / 2, sw, sh, 0, 0, w, h);
+  out.restore();
+  out.save();
+  out.strokeStyle = 'rgba(255, 255, 255, 0.35)';
+  out.lineWidth = 1;
+  out.beginPath();
+  out.roundRect(x + 0.5, y + 0.5, w - 1, h - 1, 12);
+  out.stroke();
+  out.restore();
+}
+
+/**
+ * Recording: the game's frame (camera included) and its sound, as a video
+ * file saved when it stops — MP4 where the browser can, WebM otherwise.
+ * Nothing is sent anywhere. The page's own text over the frame (the entry,
+ * the score, the opening) is not in it: only what is drawn.
+ */
+const recSwitch = document.getElementById('rec') as HTMLButtonElement;
+const recTime = recSwitch.querySelector('.time') as HTMLElement;
+let recorder: MediaRecorder | null = null;
+let recStarted = 0;
+
+function switchRecording() {
+  if (recorder) {
+    recorder.stop();
+    return;
+  }
+  sound.wake();
+  const stream = stage.captureStream(30);
+  for (const track of sound.stream()?.getAudioTracks() ?? []) stream.addTrack(track);
+  const types = ['video/mp4;codecs=avc1.42E01E,mp4a.40.2', 'video/mp4', 'video/webm;codecs=vp9,opus', 'video/webm'];
+  const type = types.find((t) => window.MediaRecorder?.isTypeSupported(t));
+  let rec: MediaRecorder;
+  try {
+    rec = new MediaRecorder(stream, { mimeType: type, videoBitsPerSecond: 8_000_000 });
+  } catch (error) {
+    console.error(error);
+    tell('este navegador não grava a tela');
+    setTimeout(() => note.classList.remove('shown'), 3000);
+    return;
+  }
+  const chunks: Blob[] = [];
+  rec.ondataavailable = (e) => { if (e.data.size) chunks.push(e.data); };
+  rec.onstop = () => {
+    for (const track of stream.getVideoTracks()) track.stop();
+    const blob = new Blob(chunks, { type: rec.mimeType || type || 'video/webm' });
+    const ext = blob.type.includes('mp4') ? 'mp4' : 'webm';
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `eles-nao-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')}.${ext}`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 60_000);
+    recorder = null;
+    recSwitch.classList.remove('on');
+    recSwitch.setAttribute('aria-label', 'Gravar a tela');
+    recTime.textContent = 'REC';
+  };
+  rec.start(1000);
+  recorder = rec;
+  recStarted = performance.now();
+  recSwitch.classList.add('on');
+  recSwitch.setAttribute('aria-label', 'Parar e salvar a gravação');
+}
+recSwitch.addEventListener('click', switchRecording);
+
+/** The running time on the button while recording. */
+function showRecording() {
+  if (!recorder) return;
+  const s = Math.floor((performance.now() - recStarted) / 1000);
+  recTime.textContent = `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+}
+
+window.addEventListener('keydown', (e) => {
+  if (e.key === 'c' || e.key === 'C') switchCamera();
+  if (e.key === 'g' || e.key === 'G') switchRecording();
+});
+
 // ── the sound switch and the credits ─────────────────────────────────────────
 
 const soundSwitch = document.getElementById('sound') as HTMLButtonElement;
@@ -474,7 +596,7 @@ creditsClose.addEventListener('click', () => showCredits(false));
 credits.addEventListener('click', (e) => { if (e.target === credits) showCredits(false); });
 window.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !credits.hidden) showCredits(false); });
 // Double-clicks on these are clicks, not a request for fullscreen.
-for (const el of [soundSwitch, creditsOpen, credits]) el.addEventListener('dblclick', (e) => e.stopPropagation());
+for (const el of [soundSwitch, camSwitch, recSwitch, creditsOpen, credits]) el.addEventListener('dblclick', (e) => e.stopPropagation());
 
 // ── the opening, for the stories ─────────────────────────────────────────────
 

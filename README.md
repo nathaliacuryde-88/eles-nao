@@ -25,9 +25,11 @@ que estamos sentindo nesse momento.
 
 Os valores ficam no topo de `src/main.ts`.
 
-Para gravar a tela jogando: `?camera` no fim do link mostra a câmera no canto
-superior direito (https://nathaliacuryde-88.github.io/eles-nao/?camera). Sem
-ele, a câmera não aparece.
+Câmera e gravação: no canto inferior esquerdo, o ícone de câmera (ou C) mostra
+a sua imagem no canto superior direito, e o REC (ou G) grava o jogo, com a
+câmera e o som, num vídeo salvo no seu aparelho (MP4 onde o navegador permite,
+senão WebM); nada é enviado. `?camera` no fim do link já abre com a câmera
+ligada e com a abertura para os stories.
 
 **Abrir:** https://nathaliacuryde-88.github.io/eles-nao/
 

@@ -27,6 +27,8 @@ export class Sound {
   private ctx: AudioContext | null = null;
   /** Everything passes through here: the switch turns it up and down. */
   private master: GainNode | null = null;
+  /** Everything heard, as a stream, for recording the game. */
+  private tap: MediaStreamAudioDestinationNode | null = null;
   /** The blows, squeezed so a run of them never clips. */
   private out: GainNode | null = null;
   private noise: AudioBuffer | null = null;
@@ -60,6 +62,9 @@ export class Sound {
         const master = ctx.createGain();
         master.gain.value = this.on ? 1 : 0;
         master.connect(ctx.destination);
+        const tap = ctx.createMediaStreamDestination();
+        master.connect(tap);
+        this.tap = tap;
         const squeeze = ctx.createDynamicsCompressor();
         squeeze.threshold.value = -10;
         squeeze.ratio.value = 6;
@@ -80,6 +85,11 @@ export class Sound {
     } catch (error) {
       console.error('No sound here:', error);
     }
+  }
+
+  /** The sound as a stream, to record with the picture; none before the audio is awake. */
+  stream(): MediaStream | null {
+    return this.tap?.stream ?? null;
   }
 
   setOn(on: boolean) {

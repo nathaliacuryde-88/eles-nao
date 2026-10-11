@@ -47,6 +47,14 @@
       #sound { left: 8px; display: grid; }
       #sound .cross, #sound.off .waves { display: none; }
       #sound.off .cross { display: inline; }
+      #cam { left: 42px; display: grid; }
+      #cam .cross { display: none; }
+      #cam.off .cross { display: inline; }
+      #rec { left: 76px; display: flex; align-items: center; gap: 6px; font-size: 11px; letter-spacing: 0.08em; }
+      #rec .dot { width: 12px; height: 12px; border-radius: 50%; border: 1.6px solid currentColor; }
+      #rec.on { color: #ff202f; }
+      #rec.on .dot { background: #ff202f; border-color: #ff202f; animation: blink 1s steps(2) infinite; }
+      @keyframes blink { 50% { opacity: 0.3; } }
       #credits-open { right: 8px; font-size: 11px; letter-spacing: 0.12em; }
       #credits {
         position: fixed; inset: 0; display: grid; place-items: end; padding: 16px 12px max(44px, calc(env(safe-area-inset-bottom) + 36px));
@@ -87,11 +95,6 @@
       #story .line { transition: opacity 0.5s ease; }
       #story .line.out { opacity: 0; }
       @keyframes unmask { to { transform: none; } }
-      #camera {
-        position: fixed; right: 12px; top: max(12px, env(safe-area-inset-top)); width: min(20.8vw, 192px);
-        aspect-ratio: 4 / 3; object-fit: cover; transform: scaleX(-1); border-radius: 12px;
-        border: 1px solid rgba(255, 255, 255, 0.35); box-shadow: 0 4px 24px rgba(0, 0, 0, 0.5); pointer-events: none;
-      }
       #score {
         position: fixed; left: 14px; top: max(12px, env(safe-area-inset-top)); color: rgba(255, 255, 255, 0.75);
         font-size: 12px; font-weight: 700; letter-spacing: 0.18em; display: none;
@@ -142,6 +145,17 @@
         <path class="cross" d="M16 9.5l5 5M21 9.5l-5 5" />
       </svg>
     </button>
+
+    <button id="cam" class="corner off" aria-label="Mostrar a câmera" title="Câmera na tela (C)">
+      <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.6"
+        stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <rect x="3" y="7" width="12.5" height="10" rx="2" />
+        <path d="M15.5 10.5 21 7.5v9l-5.5-3" />
+        <path class="cross" d="M3 4l18 16" />
+      </svg>
+    </button>
+
+    <button id="rec" class="corner" aria-label="Gravar a tela" title="Gravar (G)"><span class="dot"></span><span class="time">REC</span></button>
 
     <button id="credits-open" class="corner">créditos</button>
 
