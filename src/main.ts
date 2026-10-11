@@ -228,6 +228,7 @@ function frame() {
   callouts.draw(out, stage.width, stage.height, delta);
   drawCamera();
   drawScore();
+  drawStory(delta);
   showRecording();
   requestAnimationFrame(frame);
 }
@@ -586,6 +587,8 @@ function switchRecording() {
     recTime.textContent = 'gravar';
   };
   rec.start(1000);
+  // Recording from the entry screen: the opening plays first, in the video.
+  if (!intro.classList.contains('gone') && !telling) tellStory();
   recorder = rec;
   recStarted = performance.now();
   recSwitch.classList.add('on');
@@ -642,45 +645,110 @@ for (const el of [soundSwitch, camSwitch, recSwitch, creditsOpen, credits]) el.a
 /**
  * Black, ELE(S) NÃO! on top, and the lines one after another: each word
  * rising into view out of a mask, one by one, and once the line is whole it
- * fades out; in the words' red and letters. Then it all fades and the entry
- * is there. A click skips it.
+ * fades out; in the words' red and letters. Then it all fades. Drawn into the
+ * game's own frame, so it is in a recording; the page's text over the frame
+ * is hidden while it plays. A click skips it.
  */
-async function tellStory() {
-  const story = document.getElementById('story')!;
-  let skipped = false;
-  const skip = () => { skipped = true; };
-  story.addEventListener('click', skip);
-  story.hidden = false;
-  const top = document.createElement('p');
-  top.className = 'top';
-  top.textContent = 'ELE(S) NÃO!';
-  await document.fonts.ready;
-  const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
-  for (const sentence of STORY) {
-    if (skipped) break;
-    const line = document.createElement('p');
-    line.className = 'line';
-    const words = sentence.split(' ');
-    words.forEach((w, i) => {
-      const mask = document.createElement('span');
-      mask.className = 'mask';
-      const word = document.createElement('span');
-      word.className = 'word';
-      word.textContent = w;
-      word.style.animationDelay = `${i * STORY_WORD}ms`;
-      mask.appendChild(word);
-      line.append(mask, ' ');
-    });
-    story.replaceChildren(top, line);
-    await wait(words.length * STORY_WORD + STORY_HOLD);
-    if (sentence !== STORY[STORY.length - 1]) {
-      line.classList.add('out');
-      await wait(500);
-    }
+interface Telling { t: number; done: () => void; skipped: boolean }
+let telling: Telling | null = null;
+const STORY_FONT = '"Strichpunkt Sans", "Arial Black", sans-serif';
+const STORY_RISE = 500;
+const STORY_LINE_OUT = 500;
+const STORY_END = 800;
+
+/** When each line starts and how long it lasts, in milliseconds. */
+const storyTimes = () => {
+  let at = 0;
+  return STORY.map((sentence, i) => {
+    const words = sentence.split(' ').length;
+    const last = i === STORY.length - 1;
+    const length = words * STORY_WORD + STORY_HOLD + (last ? 0 : STORY_LINE_OUT);
+    const start = at;
+    at += length;
+    return { start, length, words, last };
+  });
+};
+
+function tellStory(): Promise<void> {
+  return new Promise((done) => {
+    telling = { t: 0, done, skipped: false };
+    document.body.classList.add('telling');
+  });
+}
+window.addEventListener('pointerdown', () => { if (telling) telling.skipped = true; });
+
+function drawStory(delta: number) {
+  const tale = telling;
+  if (!tale) return;
+  tale.t += delta * 1000;
+  const times = storyTimes();
+  const total = times[times.length - 1].start + times[times.length - 1].length;
+  if (tale.skipped && tale.t < total) tale.t = total;
+  const W = stage.width;
+  const H = stage.height;
+  const fade = tale.t > total ? Math.max(0, 1 - (tale.t - total) / STORY_END) : 1;
+  if (fade <= 0) {
+    telling = null;
+    document.body.classList.remove('telling');
+    tale.done();
+    return;
   }
-  story.classList.add('gone');
-  await wait(800);
-  story.hidden = true;
+  out.save();
+  out.globalAlpha = fade;
+  out.fillStyle = '#000';
+  out.fillRect(0, 0, W, H);
+  out.fillStyle = INK;
+  out.textAlign = 'center';
+  out.textBaseline = 'alphabetic';
+  const top = Math.min(44, Math.max(20, W * 0.045));
+  out.font = `900 ${top}px ${STORY_FONT}`;
+  out.letterSpacing = '0.06em';
+  out.fillText('ELE(S) NÃO!', W / 2, Math.max(28, 0) + top);
+  out.letterSpacing = '0px';
+
+  const now = times.findIndex((x) => tale.t < x.start + x.length);
+  const line = times[now === -1 ? times.length - 1 : now];
+  const sentence = STORY[now === -1 ? times.length - 1 : now];
+  const local = tale.t - line.start;
+  const size = Math.min(76, Math.max(26, W * 0.06));
+  out.font = `900 ${size}px ${STORY_FONT}`;
+  // Laid out in lines no wider than about fourteen letters' worth.
+  const words = sentence.toUpperCase().split(' ');
+  const space = out.measureText(' ').width;
+  const maxW = Math.min(W - 48, size * 14);
+  const rows: { word: string; w: number }[][] = [[]];
+  let rowW = 0;
+  for (const word of words) {
+    const w = out.measureText(word).width;
+    if (rowW && rowW + space + w > maxW) { rows.push([]); rowW = 0; }
+    rows[rows.length - 1].push({ word, w });
+    rowW += (rowW ? space : 0) + w;
+  }
+  const lineH = size * 1.0;
+  let y = H / 2 - (rows.length * lineH) / 2 + size * 0.8;
+  const lineOut = !line.last ? Math.max(0, (local - (line.length - STORY_LINE_OUT)) / STORY_LINE_OUT) : 0;
+  out.globalAlpha = fade * (1 - lineOut);
+  let k = 0;
+  for (const row of rows) {
+    const width = row.reduce((t, r) => t + r.w, 0) + space * (row.length - 1);
+    let x = W / 2 - width / 2;
+    for (const { word, w } of row) {
+      // Each word rises out of its own mask, one after another.
+      const u = Math.max(0, Math.min(1, (local - k * STORY_WORD) / STORY_RISE));
+      const rise = 1 - (1 - u) ** 3;
+      out.save();
+      out.beginPath();
+      out.rect(x - 2, y - size * 1.05, w + 4, size * 1.3);
+      out.clip();
+      out.textAlign = 'left';
+      out.fillText(word, x, y + (1 - rise) * size * 1.2);
+      out.restore();
+      x += w + space;
+      k++;
+    }
+    y += lineH;
+  }
+  out.restore();
 }
 let storyTold = false;
 
