@@ -338,9 +338,10 @@ function win() {
   tally.textContent = `${count(slaps, 'tapa', 'tapas')} · ${count(punches, 'soco', 'socos')} · `
     + `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
   won.classList.add('shown');
-  // With ?camera, the opening for the stories plays once, after the first
-  // round's star has had its moment, and then the next round starts.
-  if (SHOW_CAMERA && !storyTold) {
+  // With ?camera, or while recording, the opening for the stories plays
+  // once, after the first round's star has had its moment, and then the
+  // next round starts.
+  if ((SHOW_CAMERA || recorder) && !storyTold) {
     storyTold = true;
     setTimeout(() => { tellStory().then(playAgain); }, STORY_AFTER_WIN);
   }
@@ -588,8 +589,6 @@ function switchRecording() {
     recTime.textContent = 'gravar';
   };
   rec.start(1000);
-  // Recording from the entry screen: the opening plays first, in the video.
-  if (!intro.classList.contains('gone') && !telling) tellStory();
   recorder = rec;
   recStarted = performance.now();
   recSwitch.classList.add('on');
