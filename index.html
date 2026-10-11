@@ -44,14 +44,16 @@
         color: rgba(255, 255, 255, 0.55); font: inherit; cursor: pointer;
       }
       .corner:hover, .corner:focus-visible { color: #fff; }
-      #sound { left: 8px; display: grid; }
+      #sound, #cam, #rec { display: grid; justify-items: center; gap: 3px; min-width: 34px; }
+      #sound { left: 8px; }
+      .corner .label { font-size: 9px; letter-spacing: 0.06em; line-height: 1; }
       #sound .cross, #sound.off .waves { display: none; }
       #sound.off .cross { display: inline; }
-      #cam { left: 42px; display: grid; }
+      #cam { left: 48px; }
       #cam .cross { display: none; }
       #cam.off .cross { display: inline; }
-      #rec { left: 76px; display: flex; align-items: center; gap: 6px; font-size: 11px; letter-spacing: 0.08em; }
-      #rec .dot { width: 12px; height: 12px; border-radius: 50%; border: 1.6px solid currentColor; }
+      #rec { left: 90px; }
+      #rec .dot { width: 14px; height: 14px; margin: 4px 0; border-radius: 50%; border: 1.6px solid currentColor; }
       #rec.on { color: #ff202f; }
       #rec.on .dot { background: #ff202f; border-color: #ff202f; animation: blink 1s steps(2) infinite; }
       @keyframes blink { 50% { opacity: 0.3; } }
@@ -143,6 +145,7 @@
         <path class="waves" d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11" />
         <path class="cross" d="M16 9.5l5 5M21 9.5l-5 5" />
       </svg>
+      <span class="label">som</span>
     </button>
 
     <button id="cam" class="corner off" aria-label="Mostrar a câmera" title="Câmera na tela (C)">
@@ -152,9 +155,10 @@
         <path d="M15.5 10.5 21 7.5v9l-5.5-3" />
         <path class="cross" d="M3 4l18 16" />
       </svg>
+      <span class="label">câmera</span>
     </button>
 
-    <button id="rec" class="corner" aria-label="Gravar a tela" title="Gravar (G)"><span class="dot"></span><span class="time">REC</span></button>
+    <button id="rec" class="corner" aria-label="Gravar a tela" title="Gravar (G)"><span class="dot"></span><span class="label time">gravar</span></button>
 
     <button id="credits-open" class="corner">créditos</button>
 

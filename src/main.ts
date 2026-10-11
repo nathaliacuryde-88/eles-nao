@@ -564,7 +564,7 @@ function switchRecording() {
     recorder = null;
     recSwitch.classList.remove('on');
     recSwitch.setAttribute('aria-label', 'Gravar a tela');
-    recTime.textContent = 'REC';
+    recTime.textContent = 'gravar';
   };
   rec.start(1000);
   recorder = rec;
