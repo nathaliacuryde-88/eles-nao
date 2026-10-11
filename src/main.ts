@@ -58,21 +58,21 @@ const SLAP_DAMAGE = 7;
 const PUNCH_DAMAGE = 13;
 /** Why each blow lands: one per hit, in this order, round again after the last. */
 const REASONS = [
-  'Esse é por dizer que não conhecia o Vorcaro.',
-  'Esse é pela rachadinha.',
-  'Esse é pela mansão com juros camaradas do BRB.',
-  'Esse é pela loja de chocolate que o MP chamou de lavanderia.',
-  'Esse é pela medalha dada a um miliciano preso.',
-  'Esse é por empregar a mãe e a ex-mulher de um miliciano.',
-  'Esse é por oferecer as terras raras ao Trump.',
-  'Esse é por pedir ao Trump que interfira no Brasil.',
-  'Esse é pela anistia de quem tentou o golpe.',
-  'Esse é por herdar a candidatura do pai preso.',
-  'Esse é pela tentativa de golpe do pai. 27 anos de pena.',
-  'Esse é pelas vacinas que atrasaram na pandemia.',
-  'Esse é pelas joias sauditas.',
-  'Esse é pelo tarifaço que o Eduardo foi pedir ao Trump.',
-  'Esse é por pedir sanções contra o Brasil pra salvar o pai.',
+  'Esse é porque o Flávio jurou que não conhecia o Vorcaro.',
+  'Esse vai pelo golpe do Jair. 27 anos de pena.',
+  'Pela rachadinha do Flávio.',
+  'Esse é pelas vacinas que o Jair deixou atrasar.',
+  'Porque o Flávio deu medalha a um miliciano preso.',
+  'Esse é pelas joias sauditas do Jair.',
+  'Pela mansão do Flávio com juros camaradas do BRB.',
+  'Esse vai pelo Eduardo, que foi pedir tarifaço ao Trump.',
+  'Porque o Flávio ofereceu as terras raras ao Trump.',
+  'Esse é pela loja de chocolate do Flávio, que o MP chamou de lavanderia.',
+  'Pelo Jair, que tentou ficar no poder na marra.',
+  'Porque o Flávio empregou a mãe e a ex-mulher de um miliciano.',
+  'Esse é pela anistia que o Flávio quer pros golpistas.',
+  'Pelo Eduardo, que pediu sanções contra o Brasil pra salvar o pai.',
+  'E esse porque o Flávio só é candidato porque o Jair está preso.',
 ];
 /** How small he gets before the last blow takes him away, as a share of his size. */
 const SMALLEST = 0.16;
