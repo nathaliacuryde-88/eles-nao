@@ -701,10 +701,25 @@ export class Callouts {
       const u = c.age / CALLOUT_LIFE;
       const alpha = Math.min(1, c.age / 0.12) * Math.min(1, (1 - u) / 0.25);
       if (alpha <= 0) continue;
-      const w = ctx.measureText(c.text).width;
-      // Kept on screen, however near the edge the blow landed.
-      const x = Math.max(w / 2 + 12, Math.min(width - w / 2 - 12, c.x));
-      const y = Math.max(size + 12, Math.min(height - size - 12, c.y - u * m * 0.04));
+      // Broken into lines that fit the screen (phones are narrow).
+      const maxW = Math.min(width - 32, size * 34);
+      const lines: string[] = [];
+      for (const word of c.text.split(' ')) {
+        const last = lines[lines.length - 1];
+        if (last && ctx.measureText(`${last} ${word}`).width <= maxW) lines[lines.length - 1] = `${last} ${word}`;
+        else lines.push(word);
+      }
+      const w = Math.max(...lines.map((l) => ctx.measureText(l).width));
+      const lh = size * 1.3;
+      const h = lines.length * lh;
+      // Kept on screen, tilt included, however near the edge the blow landed.
+      const cos = Math.abs(Math.cos(c.angle));
+      const sin = Math.abs(Math.sin(c.angle));
+      const halfW = (w * cos + h * sin) / 2;
+      const halfH = (w * sin + h * cos) / 2;
+      const clamp = (v: number, lo: number, hi: number) => (lo > hi ? (lo + hi) / 2 : Math.max(lo, Math.min(hi, v)));
+      const x = clamp(c.x, halfW + 8, width - halfW - 8);
+      const y = clamp(c.y - u * m * 0.04, halfH + 8, height - halfH - 8);
       ctx.setTransform(1, 0, 0, 1, x, y);
       ctx.rotate(c.angle);
       ctx.globalAlpha = alpha;
@@ -712,7 +727,7 @@ export class Callouts {
       ctx.shadowColor = 'rgba(0, 0, 0, 0.9)';
       ctx.shadowBlur = size * 0.6;
       ctx.fillStyle = '#fff';
-      ctx.fillText(c.text, 0, size * 0.05);
+      lines.forEach((l, i) => ctx.fillText(l, 0, (i - (lines.length - 1) / 2) * lh + size * 0.05));
     }
     ctx.restore();
     this.list = this.list.filter((c) => c.age < CALLOUT_LIFE);
