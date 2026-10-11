@@ -1,6 +1,6 @@
 import { BigTypeRenderer } from './app/components/renderers/BigTypeRenderer';
 import { SlapRenderer } from './app/components/renderers/SlapRenderer';
-import { LHand, Sparks, Victory, type StarStyle } from './fx';
+import { Callouts, LHand, Sparks, Victory, type StarStyle } from './fx';
 import { Sound } from './sound';
 import { generateColors } from './app/config/palette';
 import { advanceClock, useLayerClock } from './app/motion/clock';
@@ -56,6 +56,24 @@ const TYPE_COLOURS = [INK, '#ffffff', INK, INK];
 const WHOLE = 100;
 const SLAP_DAMAGE = 7;
 const PUNCH_DAMAGE = 13;
+/** Why each blow lands: one per hit, in this order, round again after the last. */
+const REASONS = [
+  'Esse é por dizer que não conhecia o Vorcaro.',
+  'Esse é pela rachadinha.',
+  'Esse é pela mansão com juros camaradas do BRB.',
+  'Esse é pela loja de chocolate que o MP chamou de lavanderia.',
+  'Esse é pela medalha dada a um miliciano preso.',
+  'Esse é por empregar a mãe e a ex-mulher de um miliciano.',
+  'Esse é por oferecer as terras raras ao Trump.',
+  'Esse é por pedir ao Trump que interfira no Brasil.',
+  'Esse é pela anistia de quem tentou o golpe.',
+  'Esse é por herdar a candidatura do pai preso.',
+  'Esse é pela tentativa de golpe do pai. 27 anos de pena.',
+  'Esse é pelas vacinas que atrasaram na pandemia.',
+  'Esse é pelas joias sauditas.',
+  'Esse é pelo tarifaço que o Eduardo foi pedir ao Trump.',
+  'Esse é por pedir sanções contra o Brasil pra salvar o pai.',
+];
 /** How small he gets before the last blow takes him away, as a share of his size. */
 const SMALLEST = 0.16;
 /** How long he takes to go once the last blow lands, in seconds. */
@@ -140,6 +158,8 @@ function setHands(data: HandData) {
 const gesture = createGestureState();
 let last = performance.now();
 const sparks = new Sparks();
+const callouts = new Callouts();
+let reason = 0;
 const victory = new Victory(STAR_STYLE);
 const lhand = new LHand();
 const sound = new Sound();
@@ -192,6 +212,7 @@ function frame() {
   if (lhand.showing && !victory.showing) lhand.stop();
   sparks.update(delta);
   sparks.draw(out);
+  callouts.draw(out, stage.width, stage.height, delta);
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
@@ -238,6 +259,9 @@ slap.onHit = (hit) => {
     sparks.ring(x, y, m * 0.07, m * 0.006);
   }
   showScore(true);
+
+  // The reason for it, by the blow, a little out on the side the hand came from.
+  callouts.add(REASONS[reason++ % REASONS.length], x - hit.dx * m * 0.12, y - hit.dy * m * 0.12, hit.dx, hit.dy);
 
   // The words, knocked the same way, less.
   const knock = m * (hit.punch ? WORDS_KNOCK.punch : WORDS_KNOCK.slap);
@@ -303,6 +327,7 @@ function playAgain() {
   phaseTime = 0;
   left = WHOLE;
   slaps = 0;
+  reason = 0;
   punches = 0;
   // Back from nothing, popping up to full size on the spring.
   size = 0;

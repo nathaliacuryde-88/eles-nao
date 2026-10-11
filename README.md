@@ -55,3 +55,15 @@ npm install
 npm run dev      # http://localhost:5173
 npm run build    # gera docs/, que o GitHub Pages publica
 ```
+
+## Por que cada golpe
+
+A cada tapa ou soco aparece uma razão (lista em `REASONS`, no topo de `src/main.ts`). Fontes:
+
+- Vorcaro: [Agência Câmara](https://www.camara.leg.br/noticias/1272121-repasse-de-recursos-de-vorcaro-a-flavio-bolsonaro-reforca-pressao-por-cpi-do-banco-master), [Intercept](https://www.intercept.com.br/2026/05/13/audio-flavio-negociou-vorcaro-milhoes/), [Revista Fórum](https://revistaforum.com.br/politica/fake-news-flavio-bolsonaro-banco-mmaster/)
+- Rachadinha e loja de chocolate: [Poder360](https://www.poder360.com.br/poder-justica/gilmar-nega-pedido-para-reabrir-acao-contra-flavio-por-rachadinha/), [Acessa](https://www.acessa.com/politica/2026/03/313993-caso-da-rachadinha-de-flavio-bolsonaro-foi-encerrado-com-perguntas-nao-respondidas.html)
+- Mansão e BRB: [Diário de Pernambuco](https://www.diariodepernambuco.com.br/politica/2026/10/11725606-pf-apura-condicoes-de-financiamento-do-brb-a-flavio-bolsonaro-para-mansao-de-rs-6-milhoes.html), [Jornal de Brasília](https://jornaldebrasilia.com.br/noticias/politica-e-poder/flavio-bolsonaro-disse-ganhar-r-57-mil-metade-com-chocolates-ao-fazer-emprestimo-por-mansao/)
+- Adriano da Nóbrega: [Poder360](https://www.poder360.com.br/governo/bolsonaro-diz-que-adriano-da-nobrega-era-1-heroi-quando-foi-homenageado/), [Bem Paraná](https://www.bemparana.com.br/noticia/ex-policial-militar-estava-preso-quando-filho-de-presidente-o-homenageou)
+- Terras raras e Trump: [JB](https://www.jb.com.br/brasil/politica/2026/09/1060892-rumores-de-eventual-financiamento-por-rede-de-investidores-trumpistas-aumenta-pressao-sobre-campanha-de-flavio-bolsonaro.html), [O Hoje](https://ohoje.com/2026/04/06/flavio-se-diz-bolsonaro-2-0-e-pede-que-trump-interfira-em-territorios-brasileiros/), [SBT News](https://sbtnews.sbt.com.br/noticia/politica/flavio-exalta-reuniao-com-trump-inedito-na-historia-do-brasil)
+- Anistia e candidatura: [Diário de Pernambuco](https://www.diariodepernambuco.com.br/politica/2025/12/11702315-flavio-define-anistia-como-prioridade-apos-ser-escolhido-para-disputa-a-presidencia.html), [Mais Goiás](https://www.maisgoias.com.br/brasil/nao-reeleger-lula-e-o-que-vai-salvar-meu-pai-da-prisao-diz-flavio-bolsonaro/), [Al Jazeera](https://www.aljazeera.com/news/2025/12/6/flavio-bolsonaro-enters-brazils-2026-presidential-race-with-fathers-nod)
+- Eduardo, tarifaço e sanções: [Sul21](https://sul21.com.br/noticias/politica/2025/08/pf-indicia-bolsonaro-e-eduardo-em-inquerito-sobre-sancoes-dos-eua/), [O Cafezinho](https://www.ocafezinho.com/2025/09/23/pgr-denuncia-eduardo-bolsonaro-por-coacao-a-justica/amp/)

@@ -653,3 +653,67 @@ function backOut(x: number) {
   const u = Math.max(0, Math.min(1, x)) - 1;
   return 1 + (c + 1) * u ** 3 + c * u ** 2;
 }
+
+// ── the reasons ──────────────────────────────────────────────────────────────
+
+interface Callout {
+  text: string;
+  x: number;
+  y: number;
+  angle: number;
+  age: number;
+}
+
+/** How long a reason stays up, and how much of that it takes to fade in and out. */
+const CALLOUT_LIFE = 2.6;
+
+/**
+ * Why each blow lands: a line of text by the hit, small, bold, monospaced,
+ * tilted the way the hand came in (never upside down), drifting a little
+ * out and fading.
+ */
+export class Callouts {
+  private list: Callout[] = [];
+
+  /** A reason at (x, y), in pixels, for a hand going (dx, dy). */
+  add(text: string, x: number, y: number, dx: number, dy: number) {
+    let angle = Math.atan2(dy, dx);
+    if (angle > Math.PI / 2) angle -= Math.PI;
+    if (angle < -Math.PI / 2) angle += Math.PI;
+    angle = Math.max(-0.5, Math.min(0.5, angle));
+    // Always a little tilted, even for a blow that comes in level.
+    if (Math.abs(angle) < 0.12) angle = angle < 0 ? -0.12 : 0.12;
+    // A new reason sends the last one off quickly, so they never pile up.
+    for (const c of this.list) c.age = Math.max(c.age, CALLOUT_LIFE - 0.25);
+    this.list.push({ text, x, y, angle, age: 0 });
+  }
+
+  draw(ctx: CanvasRenderingContext2D, width: number, height: number, dt: number) {
+    if (!this.list.length) return;
+    const m = Math.min(width, height);
+    const size = Math.max(12, Math.min(20, m * 0.024));
+    ctx.save();
+    ctx.font = `700 ${size}px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    for (const c of this.list) {
+      c.age += dt;
+      const u = c.age / CALLOUT_LIFE;
+      const alpha = Math.min(1, c.age / 0.12) * Math.min(1, (1 - u) / 0.25);
+      if (alpha <= 0) continue;
+      const w = ctx.measureText(c.text).width;
+      // Kept on screen, however near the edge the blow landed.
+      const x = Math.max(w / 2 + 12, Math.min(width - w / 2 - 12, c.x));
+      const y = Math.max(size + 12, Math.min(height - size - 12, c.y - u * m * 0.04));
+      ctx.setTransform(1, 0, 0, 1, x, y);
+      ctx.rotate(c.angle);
+      ctx.globalAlpha = alpha;
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.75)';
+      ctx.fillRect(-w / 2 - size * 0.5, -size * 0.85, w + size, size * 1.7);
+      ctx.fillStyle = '#fff';
+      ctx.fillText(c.text, 0, size * 0.05);
+    }
+    ctx.restore();
+    this.list = this.list.filter((c) => c.age < CALLOUT_LIFE);
+  }
+}
