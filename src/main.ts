@@ -229,6 +229,7 @@ function frame() {
   callouts.draw(out, stage.width, stage.height, delta);
   drawCamera();
   drawScore();
+  drawIntro();
   drawStory(delta);
   showRecording();
   requestAnimationFrame(frame);
@@ -639,6 +640,68 @@ credits.addEventListener('click', (e) => { if (e.target === credits) showCredits
 window.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !credits.hidden) showCredits(false); });
 // Double-clicks on these are clicks, not a request for fullscreen.
 for (const el of [soundSwitch, camSwitch, recSwitch, creditsOpen, credits]) el.addEventListener('dblclick', (e) => e.stopPropagation());
+
+// ── the entry screen, in a recording ─────────────────────────────────────────
+
+/**
+ * The entry screen is the page's own text, over the frame, so a recording
+ * would miss it. While recording, the frame copies it: the dimming, the
+ * numbered circles, every word where the page put it, in its own type and
+ * colour, and the ENTRAR button. The layout is read from the page twice a
+ * second.
+ */
+interface Word { text: string; x: number; y: number; font: string; color: string; spacing: string }
+let introCopy: { words: Word[]; circles: { r: DOMRect; color: string }[]; button: DOMRect; at: number } | null = null;
+
+function readIntro() {
+  const words: Word[] = [];
+  const walk = document.createTreeWalker(intro, NodeFilter.SHOW_TEXT);
+  const range = document.createRange();
+  for (let node = walk.nextNode(); node; node = walk.nextNode()) {
+    const el = node.parentElement!;
+    const cs = getComputedStyle(el);
+    const font = `${cs.fontStyle} ${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
+    for (const m of (node.textContent ?? '').matchAll(/\S+/g)) {
+      range.setStart(node, m.index!);
+      range.setEnd(node, m.index! + m[0].length);
+      const r = range.getBoundingClientRect();
+      if (!r.width) continue;
+      words.push({ text: m[0], x: r.left, y: r.top + r.height / 2, font, color: cs.color, spacing: cs.letterSpacing });
+    }
+  }
+  const circles = [...intro.querySelectorAll<HTMLElement>('.steps span')].map((e) => ({ r: e.getBoundingClientRect(), color: getComputedStyle(e).color }));
+  introCopy = { words, circles, button: start.getBoundingClientRect(), at: performance.now() };
+}
+
+function drawIntro() {
+  if (!recorder || intro.classList.contains('gone') || telling) return;
+  if (!introCopy || performance.now() - introCopy.at > 500) readIntro();
+  const c = introCopy!;
+  out.save();
+  out.fillStyle = 'rgba(0, 0, 0, 0.55)';
+  out.fillRect(0, 0, stage.width, stage.height);
+  out.lineWidth = 1;
+  for (const { r, color } of c.circles) {
+    out.strokeStyle = color;
+    out.beginPath();
+    out.arc(r.left + r.width / 2, r.top + r.height / 2, r.width / 2 - 0.5, 0, Math.PI * 2);
+    out.stroke();
+  }
+  const b = c.button;
+  out.fillStyle = INK;
+  out.beginPath();
+  out.roundRect(b.left, b.top, b.width, b.height, b.height / 2);
+  out.fill();
+  out.textBaseline = 'middle';
+  out.textAlign = 'left';
+  for (const w of c.words) {
+    out.font = w.font;
+    out.letterSpacing = w.spacing === 'normal' ? '0px' : w.spacing;
+    out.fillStyle = w.color;
+    out.fillText(w.text, w.x, w.y);
+  }
+  out.restore();
+}
 
 // ── the opening, for the stories ─────────────────────────────────────────────
 
