@@ -260,8 +260,9 @@ slap.onHit = (hit) => {
   }
   showScore(true);
 
-  // The reason for it, by the blow, a little out on the side the hand came from.
-  callouts.add(REASONS[reason++ % REASONS.length], x - hit.dx * m * 0.12, y - hit.dy * m * 0.12, hit.dx, hit.dy);
+  // The reason for it, well out from the blow on the side the hand came from,
+  // away from the middle of the screen.
+  callouts.add(REASONS[reason++ % REASONS.length], x - hit.dx * m * 0.3, y - hit.dy * m * 0.3 - m * 0.06, hit.dx, hit.dy);
 
   // The words, knocked the same way, less.
   const knock = m * (hit.punch ? WORDS_KNOCK.punch : WORDS_KNOCK.slap);
